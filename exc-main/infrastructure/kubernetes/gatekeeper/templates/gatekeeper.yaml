@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gatekeeper-system
+---
+# Note: In real setup, install Gatekeeper via Helm or official manifests.
+# This is a placeholder to track infra directory structure.
+

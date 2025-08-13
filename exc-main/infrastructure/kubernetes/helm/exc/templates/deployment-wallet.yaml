@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: wallet-service }
+  template:
+    metadata:
+      labels: { app: wallet-service }
+    spec:
+      priorityClassName: critical-services
+      containers:
+        - name: wallet
+          image: {{ .Values.wallet.image }}
+          ports:
+            - containerPort: 8080
+          {{- if .Values.wallet.resources }}
+          resources:
+{{ toYaml .Values.wallet.resources | indent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-service
+spec:
+  type: {{ .Values.wallet.service.type }}
+  selector: { app: wallet-service }
+  ports:
+    - port: {{ .Values.wallet.service.port }}
+      targetPort: 8080
+{{- if and .Values.wallet.autoscaling .Values.wallet.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: wallet-service
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: wallet-service
+  minReplicas: {{ .Values.wallet.autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .Values.wallet.autoscaling.maxReplicas | default 5 }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.wallet.autoscaling.targetCPUUtilizationPercentage | default 70 }}
+{{- end }}
+
+

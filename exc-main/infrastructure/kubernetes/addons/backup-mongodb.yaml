@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-backup-script
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -euo pipefail
+    TS=$(date +%Y%m%d-%H%M%S)
+    mongodump --uri "$MONGODB_URI" --archive=/backup/backup-$TS.archive
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mongodb-backup
+spec:
+  schedule: "0 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: mongo:6
+              command: ["/bin/sh", "/scripts/backup.sh"]
+              env:
+                - name: MONGODB_URI
+                  value: mongodb://admin:password@mongodb:27017/notification?authSource=admin
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+                - name: backup
+                  mountPath: /backup
+          volumes:
+            - name: scripts
+              configMap:
+                name: mongodb-backup-script
+                defaultMode: 0755
+            - name: backup
+              emptyDir: {}
+

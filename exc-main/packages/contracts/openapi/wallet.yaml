@@ -1,0 +1,28 @@
+openapi: 3.1.0
+info:
+  title: Wallet API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8088/api/wallet
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /deposit:
+    post:
+      summary: Create deposit
+      requestBody:
+        required: false
+      responses:
+        '200': { description: Accepted }
+  /withdraw:
+    post:
+      summary: Create withdrawal
+      requestBody:
+        required: false
+      responses:
+        '200': { description: Accepted }
+
+

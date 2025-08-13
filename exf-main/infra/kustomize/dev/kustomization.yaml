@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespaces.yaml
+  - trading-oms/deployment.yaml
+  - market-data/deployment.yaml
+  - kafka/kafka.yaml
+  - postgres/postgres.yaml
+  - gateway/ingress.yaml
+configMapGenerator:
+  - name: exf-config
+    literals:
+      - ENV=dev
+      - REGION=local
+namespace: exf-dev
+

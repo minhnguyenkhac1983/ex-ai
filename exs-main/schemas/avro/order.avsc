@@ -1,0 +1,67 @@
+{
+  "type": "record",
+  "name": "Order",
+  "namespace": "com.exs.trading.v1",
+  "fields": [
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "Unique order identifier"
+    },
+    {
+      "name": "symbol",
+      "type": "string",
+      "doc": "Trading symbol"
+    },
+    {
+      "name": "side",
+      "type": {
+        "type": "enum",
+        "name": "OrderSide",
+        "symbols": ["BUY", "SELL"]
+      },
+      "doc": "Order side (BUY/SELL)"
+    },
+    {
+      "name": "orderType",
+      "type": {
+        "type": "enum",
+        "name": "OrderType",
+        "symbols": ["MARKET", "LIMIT", "STOP", "STOP_LIMIT"]
+      },
+      "doc": "Order type"
+    },
+    {
+      "name": "quantity",
+      "type": "long",
+      "doc": "Order quantity"
+    },
+    {
+      "name": "price",
+      "type": {
+        "type": "record",
+        "name": "Decimal",
+        "fields": [
+          {"name": "value", "type": "long"},
+          {"name": "scale", "type": "int"}
+        ]
+      },
+      "doc": "Order price (nullable for market orders)"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "doc": "Order timestamp in milliseconds"
+    },
+    {
+      "name": "memberId",
+      "type": "string",
+      "doc": "Member identifier"
+    },
+    {
+      "name": "accountId",
+      "type": "string",
+      "doc": "Account identifier"
+    }
+  ]
+}

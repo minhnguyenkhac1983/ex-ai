@@ -1,0 +1,15 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPAllowedImageDigests
+metadata:
+  name: deny-unsigned-images
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+  parameters:
+    # Example policy skeleton; in real cluster, enforce cosign/certificate verification via policy-controller
+    allowedPatterns:
+      - ".*@sha256:.*"
+
+

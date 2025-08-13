@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package exs.trading.v1;
+
+option java_multiple_files = true;
+option java_package = "com.exs.trading.v1";
+option java_outer_classname = "TradingProto";
+
+// NOTE: Sử dụng string cho price/quantity để tránh lỗi làm tròn; map sang Decimal ở service.
+
+enum Side {
+  SIDE_UNSPECIFIED = 0;
+  SIDE_BUY = 1;
+  SIDE_SELL = 2;
+}
+
+enum OrderType {
+  ORDER_TYPE_UNSPECIFIED = 0;
+  ORDER_TYPE_LIMIT = 1;
+  ORDER_TYPE_MARKET = 2;
+}
+
+message PlaceOrderRequest {
+  string client_order_id = 1;
+  string symbol = 2;            // ví dụ: "AAPL"
+  Side side = 3;                // BUY/SELL
+  OrderType order_type = 4;     // LIMIT/MARKET
+  string price = 5;             // decimal-as-string
+  string quantity = 6;          // decimal-as-string
+  string account_id = 7;
+  int64  timestamp_ms = 8;      // epoch millis
+}
+
+message PlaceOrderResponse {
+  string order_id = 1;
+  string status = 2;            // NEW/REJECTED
+  string reason = 3;            // nếu bị từ chối
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string account_id = 2;
+}
+
+message CancelOrderResponse {
+  string order_id = 1;
+  string status = 2;            // CANCELED/REJECTED
+  string reason = 3;
+}
+
+service OrderService {
+  rpc PlaceOrder(PlaceOrderRequest) returns (PlaceOrderResponse);
+  rpc CancelOrder(CancelOrderRequest) returns (CancelOrderResponse);
+}
+
+

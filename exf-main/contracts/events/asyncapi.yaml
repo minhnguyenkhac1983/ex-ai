@@ -1,0 +1,67 @@
+asyncapi: '2.6.0'
+info:
+  title: EXF Domain Events
+  version: 1.0.0
+  description: Streams for orders, execution reports, trades, and market data
+defaultContentType: application/json
+servers:
+  kafka:
+    url: kafka:9092
+    protocol: kafka
+
+channels:
+  orders.v1:
+    description: Orders emitted by trading-oms
+    publish:
+      message:
+        $ref: '#/components/messages/OrderPlaced'
+  execution-reports.v1:
+    description: Execution reports from matching-engine
+    publish:
+      message:
+        $ref: '#/components/messages/ExecutionReport'
+  trades.v1:
+    description: Trades created by matching-engine
+    publish:
+      message:
+        $ref: '#/components/messages/TradeCreated'
+  market-data.quotes.v1:
+    description: Level 1 quote updates
+    publish:
+      message:
+        $ref: '#/components/messages/QuoteUpdated'
+  market-data.book.v1:
+    description: L2 order book updates
+    publish:
+      message:
+        $ref: '#/components/messages/BookUpdated'
+
+components:
+  messages:
+    OrderPlaced:
+      name: OrderPlaced
+      title: OrderPlaced
+      payload:
+        $ref: './schemas/OrderPlaced.schema.json'
+    ExecutionReport:
+      name: ExecutionReport
+      title: ExecutionReport
+      payload:
+        $ref: './schemas/ExecutionReport.schema.json'
+    TradeCreated:
+      name: TradeCreated
+      title: TradeCreated
+      payload:
+        $ref: './schemas/TradeCreated.schema.json'
+    QuoteUpdated:
+      name: QuoteUpdated
+      title: QuoteUpdated
+      payload:
+        $ref: './schemas/QuoteUpdated.schema.json'
+    BookUpdated:
+      name: BookUpdated
+      title: BookUpdated
+      payload:
+        $ref: './schemas/BookUpdated.schema.json'
+
+

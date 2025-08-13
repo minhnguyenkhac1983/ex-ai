@@ -1,0 +1,161 @@
+# Trading BFF Federation Configuration
+
+service:
+  name: trading-bff
+  version: 1.0.0
+
+federation:
+  version: 2
+  directives:
+    - @key
+    - @extends
+    - @external
+    - @requires
+    - @provides
+
+schema:
+  path: ../../schemas/trading.graphql
+  path: ../../schemas/common.graphql
+
+resolvers:
+  # Order resolvers
+  Query.orders:
+    service: trading-oms
+    method: getOrders
+  
+  Query.order:
+    service: trading-oms
+    method: getOrder
+  
+  # Portfolio resolvers
+  Query.portfolio:
+    service: portfolio-analytics
+    method: getPortfolio
+  
+  Query.positions:
+    service: portfolio-analytics
+    method: getPositions
+  
+  # Market data resolvers
+  Query.marketData:
+    service: market-data
+    method: getMarketData
+  
+  Query.orderBook:
+    service: market-data
+    method: getOrderBook
+  
+  Query.trades:
+    service: market-data
+    method: getTrades
+  
+  # Risk resolvers
+  Query.riskMetrics:
+    service: risk-service
+    method: getRiskMetrics
+  
+  Query.marginRequirements:
+    service: risk-service
+    method: getMarginRequirements
+
+subscriptions:
+  # Real-time subscriptions
+  orderUpdates:
+    service: trading-oms
+    event: OrderUpdated
+  
+  marketDataUpdates:
+    service: market-data
+    event: MarketDataUpdated
+  
+  portfolioUpdates:
+    service: portfolio-analytics
+    event: PortfolioUpdated
+  
+  riskAlerts:
+    service: risk-service
+    event: RiskAlert
+
+entities:
+  Order:
+    key: "id"
+    resolvers:
+      - service: trading-oms
+        method: getOrder
+  
+  Portfolio:
+    key: "memberId"
+    resolvers:
+      - service: portfolio-analytics
+        method: getPortfolio
+  
+  MarketData:
+    key: "symbol"
+    resolvers:
+      - service: market-data
+        method: getMarketData
+
+caching:
+  enabled: true
+  ttl: 60  # 1 minute
+  keys:
+    - "orders:{memberId}"
+    - "portfolio:{memberId}"
+    - "marketData:{symbol}"
+    - "orderBook:{symbol}"
+
+rateLimit:
+  enabled: true
+  windowMs: 60000  # 1 minute
+  max: 100  # 100 requests per minute per user
+
+authentication:
+  required: true
+  type: JWT
+  header: Authorization
+  audience: trading-bff
+  issuer: iam-security
+
+authorization:
+  enabled: true
+  policies:
+    - resource: "orders"
+      actions: ["read", "write"]
+      roles: ["TRADER", "ADMIN"]
+    
+    - resource: "portfolio"
+      actions: ["read"]
+      roles: ["TRADER", "ANALYST", "ADMIN"]
+    
+    - resource: "marketData"
+      actions: ["read"]
+      roles: ["TRADER", "ANALYST", "VIEWER"]
+    
+    - resource: "risk"
+      actions: ["read"]
+      roles: ["TRADER", "RISK", "ADMIN"]
+
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: /metrics
+  
+  tracing:
+    enabled: true
+    sampling: 0.1
+  
+  logging:
+    level: info
+    format: json
+    fields:
+      service: trading-bff
+      environment: ${NODE_ENV}
+
+healthCheck:
+  enabled: true
+  endpoint: /health
+  dependencies:
+    - trading-oms
+    - market-data
+    - portfolio-analytics
+    - risk-service

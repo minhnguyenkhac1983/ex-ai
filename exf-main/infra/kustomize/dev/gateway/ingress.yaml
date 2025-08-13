@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: exf-gateway
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: dev.exf.local
+      http:
+        paths:
+          - path: /oms
+            pathType: Prefix
+            backend:
+              service:
+                name: trading-oms
+                port:
+                  number: 80
+          - path: /md
+            pathType: Prefix
+            backend:
+              service:
+                name: market-data
+                port:
+                  number: 80
+

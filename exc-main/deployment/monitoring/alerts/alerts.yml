@@ -1,0 +1,18 @@
+groups:
+  - name: exc-basic
+    rules:
+      - alert: MarketDataDown
+        expr: up{job="market-data"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Market Data service down"
+      - alert: TradingEngineNoMetrics
+        expr: absent(up{job="trading-engine"})
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Trading engine has no metrics scraped"
+

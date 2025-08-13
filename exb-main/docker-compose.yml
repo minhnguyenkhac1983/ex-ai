@@ -1,0 +1,344 @@
+version: '3.9'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:latest
+    container_name: exb-postgres
+    environment:
+      POSTGRES_DB: exb_banking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    command: ["postgres","-c","wal_level=logical","-c","max_wal_senders=10","-c","max_replication_slots=10"]
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./databases/postgresql:/docker-entrypoint-initdb.d
+    networks:
+      - exb-network
+
+  redis:
+    image: redis:latest
+    container_name: exb-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - exb-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: exb-clickhouse
+    environment:
+      CLICKHOUSE_DB: exb_analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse123
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - exb-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.0
+    container_name: exb-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - exb-network
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: exb-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - exb-network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    container_name: exb-schema-registry
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka:9092'
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
+    networks:
+      - exb-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: exb-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - exb-network
+
+  connect:
+    image: quay.io/debezium/connect:latest
+    container_name: exb-connect
+    depends_on:
+      - kafka
+      - schema-registry
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: exb-connect
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+    ports:
+      - "8083:8083"
+    networks:
+      - exb-network
+
+  debezium-ui:
+    image: quay.io/debezium/debezium-ui:latest
+    container_name: exb-debezium-ui
+    environment:
+      - KAFKA_CONNECT_URIS=http://connect:8083
+    ports:
+      - "8088:8080"
+    depends_on:
+      - connect
+    networks:
+      - exb-network
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: exb-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - exb-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: exb-otel-collector
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/config.yaml:/etc/otel/config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+    networks:
+      - exb-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: exb-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - exb-network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: exb-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/config.yml:/etc/alertmanager/config.yml
+    command: ["--config.file=/etc/alertmanager/config.yml"]
+    networks:
+      - exb-network
+
+  # Identity (Dev)
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: exb-keycloak
+    command: start-dev --http-port=8085
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - "8085:8085"
+    networks:
+      - exb-network
+
+  # Logging Stack
+  loki:
+    image: grafana/loki:latest
+    container_name: exb-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/local-config.yaml:/etc/loki/local-config.yaml
+    networks:
+      - exb-network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: exb-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - ./observability/promtail/config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - exb-network
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: exb-tempo
+    command: ["-config.file=/etc/tempo/config.yml"]
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./observability/tempo/config.yml:/etc/tempo/config.yml
+    networks:
+      - exb-network
+
+  # API Gateway
+  api-gateway:
+    image: nginx:latest
+    container_name: exb-api-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exb-network
+
+  # Backend Services (Development)
+  customer-service:
+    build:
+      context: ./backend/core-banking/customer-service
+      dockerfile: Dockerfile.dev
+    container_name: exb-customer-service
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/exb_banking
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exb-network
+
+  account-service:
+    build:
+      context: ./backend/core-banking/account-service
+      dockerfile: Dockerfile.dev
+    container_name: exb-account-service
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/exb_banking
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exb-network
+
+  transaction-service:
+    build:
+      context: ./backend/core-banking/transaction-service
+      dockerfile: Dockerfile.dev
+    container_name: exb-transaction-service
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/exb_banking
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exb-network
+
+  # Frontend Services
+  web-app:
+    build:
+      context: ./frontend/web-app
+      dockerfile: Dockerfile.dev
+    container_name: exb-web-app
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8080
+    networks:
+      - exb-network
+
+  admin-dashboard:
+    build:
+      context: ./frontend/admin-dashboard
+      dockerfile: Dockerfile.dev
+    container_name: exb-admin-dashboard
+    ports:
+      - "3001:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8080
+    networks:
+      - exb-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  clickhouse_data:
+  elasticsearch_data:
+  elasticsearch_logs_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  exb-network:
+    driver: bridge

@@ -1,0 +1,98 @@
+# Apollo Federation Gateway Configuration
+
+federation:
+  version: 2
+
+gateway:
+  name: exf-gateway
+  version: 1.0.0
+
+serviceList:
+  - name: trading-bff
+    url: http://trading-bff:4001/graphql
+    introspectionHeaders:
+      Authorization: "Bearer ${GATEWAY_TOKEN}"
+  
+  - name: analytics-bff
+    url: http://analytics-bff:4002/graphql
+    introspectionHeaders:
+      Authorization: "Bearer ${GATEWAY_TOKEN}"
+
+introspection:
+  enabled: true
+  headers:
+    Authorization: "Bearer ${GATEWAY_TOKEN}"
+
+queryPlannerConfig:
+  exposeDocumentNodeInFetchNode: true
+  reuseQueryFragments: true
+
+experimental:
+  queryPlanHiding: true
+  incrementalDelivery:
+    enableDefer: true
+    enableStream: true
+
+telemetry:
+  metrics:
+    enabled: true
+    endpoint: http://prometheus:9090/metrics
+  tracing:
+    enabled: true
+    sampling: 0.1
+    endpoint: http://jaeger:14268/api/traces
+
+cors:
+  origin: ["http://localhost:3000", "https://trading.exf.com"]
+  credentials: true
+  methods: ["GET", "POST", "OPTIONS"]
+  allowedHeaders: ["Content-Type", "Authorization"]
+
+rateLimit:
+  enabled: true
+  windowMs: 900000  # 15 minutes
+  max: 1000  # limit each IP to 1000 requests per windowMs
+  message: "Too many requests from this IP, please try again later."
+
+security:
+  csrf:
+    enabled: true
+    cookie: true
+  helmet:
+    enabled: true
+    contentSecurityPolicy: true
+    hsts: true
+    noSniff: true
+    xssFilter: true
+
+cache:
+  enabled: true
+  ttl: 300  # 5 minutes
+  maxSize: 1000
+  redis:
+    host: redis
+    port: 6379
+    password: ${REDIS_PASSWORD}
+
+healthCheck:
+  enabled: true
+  endpoint: /health
+  interval: 30000  # 30 seconds
+
+logging:
+  level: info
+  format: json
+  destination: stdout
+  fields:
+    service: exf-gateway
+    environment: ${NODE_ENV}
+
+monitoring:
+  apollo:
+    enabled: true
+    key: ${APOLLO_KEY}
+    graphRef: ${APOLLO_GRAPH_REF}
+  sentry:
+    enabled: true
+    dsn: ${SENTRY_DSN}
+    environment: ${NODE_ENV}

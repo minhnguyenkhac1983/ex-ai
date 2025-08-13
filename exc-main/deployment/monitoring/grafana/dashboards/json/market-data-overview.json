@@ -1,0 +1,17 @@
+{
+  "id": null,
+  "uid": "md-overview",
+  "title": "Market Data Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Ticks per second",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "rate(md_ticks_total[1m])" }]
+    }
+  ]
+}
+

@@ -1,0 +1,103 @@
+name: flutter_mobile_trading
+description: Flutter Mobile Trading Application for Crypto Exchange
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI & Navigation
+  cupertino_icons: ^1.0.2
+  go_router: ^13.0.0
+  flutter_riverpod: ^2.4.9
+  
+  # HTTP & WebSocket
+  http: ^1.1.0
+  web_socket_channel: ^2.4.0
+  dio: ^5.3.2
+  
+  # Charts & Trading
+  fl_chart: ^0.66.0
+  candlesticks: ^2.1.0
+  syncfusion_flutter_charts: ^24.1.41
+  
+  # State Management
+  riverpod: ^2.4.9
+  flutter_hooks: ^0.20.3
+  hooks_riverpod: ^2.4.9
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Utils
+  decimal: ^2.3.3
+  intl: ^0.19.0
+  logger: ^2.0.2+1
+  uuid: ^4.2.1
+  
+  # JSON & Serialization
+  json_annotation: ^4.8.1
+  freezed_annotation: ^2.4.1
+  
+  # Security & Biometrics
+  crypto: ^3.0.3
+  local_auth: ^2.1.6
+  flutter_secure_storage: ^9.0.0
+  
+  # Notifications
+  flutter_local_notifications: ^16.3.2
+  firebase_messaging: ^14.7.10
+  
+  # Device Features
+  device_info_plus: ^9.1.1
+  package_info_plus: ^4.2.0
+  url_launcher: ^6.2.2
+  share_plus: ^7.2.1
+  
+  # UI Enhancement
+  flutter_screenutil: ^5.9.0
+  cached_network_image: ^3.3.0
+  shimmer: ^3.0.0
+  pull_to_refresh: ^2.0.0
+  
+  # QR Code
+  qr_code_scanner: ^1.0.1
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  
+  # Code Generation
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  freezed: ^2.4.6
+  riverpod_generator: ^2.3.9
+  hive_generator: ^2.0.1
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+    - assets/animations/
+  
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-Light.ttf
+          weight: 300

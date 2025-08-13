@@ -1,0 +1,82 @@
+{{- define "exc.svc" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+spec:
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    type: RollingUpdate
+  replicas: 1
+  selector:
+    matchLabels: { app: {{ .name }} }
+  template:
+    metadata:
+      labels: { app: {{ .name }} }
+    spec:
+      {{- if .priorityClassName }}
+      priorityClassName: {{ .priorityClassName }}
+      {{- end }}
+      containers:
+        - name: {{ .name }}
+          image: {{ .image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .port }}
+          {{- if .resources }}
+          resources:
+{{ toYaml .resources | indent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+spec:
+  type: ClusterIP
+  selector: { app: {{ .name }} }
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+{{- if and .autoscaling .autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  minReplicas: {{ .autoscaling.minReplicas | default 1 }}
+  maxReplicas: {{ .autoscaling.maxReplicas | default 5 }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .autoscaling.targetCPUUtilizationPercentage | default 70 }}
+{{- end }}
+{{- end -}}
+
+{{ include "exc.svc" (dict "name" "trading-engine" "image" .Values.tradingEngine.image "port" .Values.tradingEngine.service.port "resources" .Values.tradingEngine.resources "autoscaling" .Values.tradingEngine.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "market-data-service" "image" .Values.marketData.image "port" .Values.marketData.service.port "resources" .Values.marketData.resources "autoscaling" .Values.marketData.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "identity-service" "image" .Values.identity.image "port" .Values.identity.service.port "resources" .Values.identity.resources "autoscaling" .Values.identity.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "compliance-service" "image" .Values.compliance.image "port" .Values.compliance.service.port "resources" .Values.compliance.resources "autoscaling" .Values.compliance.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "risk-service" "image" .Values.risk.image "port" .Values.risk.service.port "resources" .Values.risk.resources "autoscaling" .Values.risk.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "treasury-service" "image" .Values.treasury.image "port" .Values.treasury.service.port "resources" .Values.treasury.resources "autoscaling" .Values.treasury.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "user-service" "image" .Values.user.image "port" .Values.user.service.port "resources" .Values.user.resources "autoscaling" .Values.user.autoscaling) }}
+---
+{{ include "exc.svc" (dict "name" "notification-service" "image" .Values.notification.image "port" .Values.notification.service.port "resources" .Values.notification.resources "autoscaling" .Values.notification.autoscaling) }}
+
+

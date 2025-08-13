@@ -1,0 +1,23 @@
+{
+  "id": null,
+  "uid": "te-overview",
+  "title": "Trading Engine Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Orders per second",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "rate(te_orders_total[1m])" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Trades per second",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [{ "expr": "rate(te_trades_total[1m])" }]
+    }
+  ]
+}
+

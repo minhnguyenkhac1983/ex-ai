@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trading-oms
+  labels:
+    app: trading-oms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trading-oms
+  template:
+    metadata:
+      labels:
+        app: trading-oms
+    spec:
+      containers:
+        - name: trading-oms
+          image: ghcr.io/example/exf-trading-oms:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: exf-config
+                  key: ENV
+            - name: KAFKA_BROKERS
+              value: kafka:9092
+            - name: POSTGRES_DSN
+              value: postgres://exf:exf@postgres:5432/exf?sslmode=disable
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-oms
+spec:
+  selector:
+    app: trading-oms
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+

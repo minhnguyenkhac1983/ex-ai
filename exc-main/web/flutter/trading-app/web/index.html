@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Professional Crypto Exchange Trading Platform">
+  <meta name="keywords" content="crypto, trading, exchange, bitcoin, ethereum, blockchain">
+  <meta name="author" content="Crypto Exchange Team">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Crypto Exchange">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Crypto Exchange Trading</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Responsive design -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- SEO Meta Tags -->
+  <meta property="og:title" content="Crypto Exchange Trading Platform">
+  <meta property="og:description" content="Professional cryptocurrency trading platform with advanced features">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yourexchange.com">
+  <meta property="og:image" content="https://yourexchange.com/og-image.png">
+
+  <!-- Twitter Card Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Crypto Exchange Trading Platform">
+  <meta name="twitter:description" content="Professional cryptocurrency trading platform">
+  <meta name="twitter:image" content="https://yourexchange.com/twitter-image.png">
+
+  <!-- Preload critical resources -->
+  <link rel="preload" href="assets/fonts/Roboto-Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="assets/fonts/Roboto-Bold.ttf" as="font" type="font/ttf" crossorigin>
+
+  <!-- Security Headers -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss: https:;">
+
+  <style>
+    /* Loading screen styles */
+    .loading-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .loading-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 24px;
+      animation: pulse 2s infinite;
+    }
+
+    .loading-text {
+      color: white;
+      font-family: 'Roboto', sans-serif;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 32px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Remove loading screen once Flutter loads */
+    .flutter-loaded .loading-container {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div class="loading-container" id="loading-screen">
+    <div class="loading-logo">
+      <svg viewBox="0 0 100 100" fill="white">
+        <circle cx="50" cy="50" r="45" stroke="white" stroke-width="2" fill="none"/>
+        <text x="50" y="55" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="white">EXC</text>
+      </svg>
+    </div>
+    <div class="loading-text">Loading Crypto Exchange...</div>
+    <div class="loading-spinner"></div>
+  </div>
+
+  <!-- Flutter app will be inserted here -->
+  <script>
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('flutter-first-frame', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js');
+      });
+    }
+
+    // Hide loading screen once Flutter loads
+    window.addEventListener('flutter-first-frame', function () {
+      document.body.classList.add('flutter-loaded');
+    });
+
+    // Error handling
+    window.addEventListener('error', function(e) {
+      console.error('Application error:', e.error);
+    });
+
+    // Performance monitoring
+    window.addEventListener('load', function() {
+      if (window.performance && window.performance.timing) {
+        const loadTime = window.performance.timing.loadEventEnd - window.performance.timing.navigationStart;
+        console.log('Page load time:', loadTime, 'ms');
+      }
+    });
+  </script>
+
+  <!-- Flutter initialization -->
+  <script src="flutter.js" defer></script>
+</body>
+</html>

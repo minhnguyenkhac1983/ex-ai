@@ -1,0 +1,30 @@
+{
+  "$id": "https://exf.example.com/events/OrderPlaced.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderPlaced",
+  "type": "object",
+  "required": [
+    "eventId", "eventType", "version", "occurredAt", "idempotencyKey",
+    "orderId", "clientOrderId", "instrumentId", "memberId", "side", "type", "quantity", "tif"
+  ],
+  "properties": {
+    "eventId": { "type": "string" },
+    "eventType": { "type": "string", "const": "OrderPlaced" },
+    "version": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "idempotencyKey": { "type": "string" },
+    "orderId": { "type": "string" },
+    "clientOrderId": { "type": "string" },
+    "instrumentId": { "type": "string" },
+    "memberId": { "type": "string" },
+    "side": { "type": "string", "enum": ["BUY", "SELL"] },
+    "type": { "type": "string", "enum": ["MARKET", "LIMIT", "STOP", "STOP_LIMIT", "ICEBERG"] },
+    "quantity": { "type": "string" },
+    "price": { "type": "string" },
+    "tif": { "type": "string", "enum": ["DAY", "GTC", "IOC", "FOK", "GTT"] },
+    "expireAt": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}
+

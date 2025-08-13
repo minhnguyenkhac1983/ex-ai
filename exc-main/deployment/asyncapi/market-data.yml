@@ -1,0 +1,25 @@
+asyncapi: '2.6.0'
+info:
+  title: Market Data Events
+  version: '0.1.0'
+  description: Realtime ticks from upstream connectors
+defaultContentType: application/json
+servers:
+  redpanda:
+    url: redpanda:9092
+    protocol: kafka
+channels:
+  md.ticks:
+    description: Price ticks
+    subscribe:
+      message:
+        name: Tick
+        payload:
+          type: object
+          required: [ts, price]
+          properties:
+            ts: { type: string, format: date-time }
+            price: { type: number }
+            qty: { type: number }
+            src: { type: string }
+

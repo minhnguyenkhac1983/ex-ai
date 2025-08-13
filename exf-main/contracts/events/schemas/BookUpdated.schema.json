@@ -1,0 +1,35 @@
+{
+  "$id": "https://exf.example.com/events/BookUpdated.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BookUpdated",
+  "type": "object",
+  "required": ["eventId", "eventType", "version", "occurredAt", "instrumentId", "bids", "asks"],
+  "properties": {
+    "eventId": { "type": "string" },
+    "eventType": { "type": "string", "const": "BookUpdated" },
+    "version": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "instrumentId": { "type": "string" },
+    "bids": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/level" }
+    },
+    "asks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/level" }
+    }
+  },
+  "$defs": {
+    "level": {
+      "type": "object",
+      "required": ["price", "qty"],
+      "properties": {
+        "price": { "type": "string" },
+        "qty": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+

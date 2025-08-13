@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Trading OMS API
+  version: 1.0.0
+  description: Order lifecycle API (create/amend/cancel/query)
+servers:
+  - url: https://api.example.com
+paths:
+  /orders:
+    post:
+      summary: Create order
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400': { description: Bad Request }
+        '409': { description: Duplicate idempotency key }
+  /orders/{orderId}:
+    get:
+      summary: Get order by id
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404': { description: Not Found }
+    patch:
+      summary: Amend order
+      operationId: amendOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderAmendRequest'
+      responses:
+        '202': { description: Accepted }
+        '400': { description: Bad Request }
+        '404': { description: Not Found }
+    delete:
+      summary: Cancel order
+      operationId: cancelOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202': { description: Accepted }
+        '404': { description: Not Found }
+
+components:
+  schemas:
+    OrderSide:
+      type: string
+      enum: [BUY, SELL]
+    OrderType:
+      type: string
+      enum: [MARKET, LIMIT, STOP, STOP_LIMIT, ICEBERG]
+    TimeInForce:
+      type: string
+      enum: [DAY, GTC, IOC, FOK, GTT]
+    OrderStatus:
+      type: string
+      enum: [NEW, PARTIALLY_FILLED, FILLED, CANCELLED, REJECTED, PENDING_AMEND, PENDING_CANCEL]
+    OrderCreateRequest:
+      type: object
+      required: [clientOrderId, instrumentId, side, type, quantity, tif, idempotencyKey, memberId]
+      properties:
+        clientOrderId: { type: string }
+        instrumentId: { type: string }
+        memberId: { type: string }
+        side: { $ref: '#/components/schemas/OrderSide' }
+        type: { $ref: '#/components/schemas/OrderType' }
+        quantity: { type: string, pattern: '^[0-9]+(\.[0-9]+)?$' }
+        price: { type: string, pattern: '^[0-9]+(\.[0-9]+)?$', nullable: true }
+        tif: { $ref: '#/components/schemas/TimeInForce' }
+        expireAt: { type: string, format: date-time, nullable: true }
+        icebergDisplayedQty: { type: string, pattern: '^[0-9]+(\.[0-9]+)?$', nullable: true }
+        idempotencyKey: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    OrderAmendRequest:
+      type: object
+      properties:
+        quantity: { type: string, pattern: '^[0-9]+(\.[0-9]+)?$' }
+        price: { type: string, pattern: '^[0-9]+(\.[0-9]+)?$' }
+        tif: { $ref: '#/components/schemas/TimeInForce' }
+      additionalProperties: false
+    ExecutionFill:
+      type: object
+      required: [tradeId, price, quantity, occurredAt]
+      properties:
+        tradeId: { type: string }
+        price: { type: string }
+        quantity: { type: string }
+        occurredAt: { type: string, format: date-time }
+    OrderResponse:
+      type: object
+      required: [orderId, status]
+      properties:
+        orderId: { type: string }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        clientOrderId: { type: string }
+        instrumentId: { type: string }
+        side: { $ref: '#/components/schemas/OrderSide' }
+        type: { $ref: '#/components/schemas/OrderType' }
+        quantity: { type: string }
+        price: { type: string, nullable: true }
+        tif: { $ref: '#/components/schemas/TimeInForce' }
+        fills:
+          type: array
+          items: { $ref: '#/components/schemas/ExecutionFill' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+

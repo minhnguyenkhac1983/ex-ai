@@ -1,0 +1,359 @@
+# GitLab CI/CD Pipeline cho Crypto Exchange Platform
+# Sử dụng GitLab Runner với Docker executor
+
+variables:
+  DOCKER_REGISTRY: "localhost:5000"
+  KUBE_NAMESPACE: "exc"
+  NODE_VERSION: "18"
+  GO_VERSION: "1.21"
+  HELM_VERSION: "3.12.0"
+
+# Cache dependencies
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - apps/bff-web/node_modules/
+    - services/*/vendor/
+
+# Stages
+stages:
+  - validate
+  - test
+  - build
+  - security
+  - deploy-staging
+  - integration-test
+  - deploy-production
+  - post-deploy
+
+# Jobs
+
+## Validation Stage
+validate:yaml:
+  stage: validate
+  image: alpine:latest
+  script:
+    - apk add --no-cache yamllint
+    - yamllint -c .yamllint .
+
+validate:helm:
+  stage: validate
+  image: alpine/helm:${HELM_VERSION}
+  script:
+    - helm lint infrastructure/kubernetes/helm/exc
+
+validate:database:
+  stage: validate
+  image: arigaio/atlas:latest
+  script:
+    - atlas schema lint --dev-url "docker://postgres/15/dev?search_path=public" --dir "file://database/migrations"
+
+## Test Stage
+test:unit:node:
+  stage: test
+  image: node:${NODE_VERSION}
+  script:
+    - cd apps/bff-web
+    - npm ci --no-audit --no-fund
+    - npm run lint
+    - npm run test
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: apps/bff-web/coverage/cobertura-coverage.xml
+    paths:
+      - apps/bff-web/coverage/
+    expire_in: 1 week
+
+test:unit:go:
+  stage: test
+  image: golang:${GO_VERSION}
+  services:
+    - postgres:15
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: test_user
+    POSTGRES_PASSWORD: test_password
+  script:
+    - cd services/wallet
+    - go mod download
+    - go test -v -coverprofile=coverage.out ./...
+    - go tool cover -html=coverage.out -o coverage.html
+    - go tool cover -func=coverage.out
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: services/wallet/coverage.xml
+    paths:
+      - services/wallet/coverage.out
+      - services/wallet/coverage.html
+    expire_in: 1 week
+
+test:contract:
+  stage: test
+  image: node:${NODE_VERSION}
+  script:
+    - cd apps/bff-web
+    - npm ci --no-audit --no-fund
+    - npm run pact:verify:wallet
+  artifacts:
+    paths:
+      - apps/bff-web/pacts/
+    expire_in: 1 week
+
+test:load:
+  stage: test
+  image: grafana/k6:latest
+  script:
+    - k6 run tests/load/wallet-k6.js
+  artifacts:
+    paths:
+      - k6-results.json
+    expire_in: 1 week
+
+## Build Stage
+build:bff-web:
+  stage: build
+  image: node:${NODE_VERSION}
+  script:
+    - cd apps/bff-web
+    - npm ci --no-audit --no-fund
+    - npm run build
+    - docker build -t ${DOCKER_REGISTRY}/exc-bff-web:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/exc-bff-web:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - apps/bff-web/dist/
+    expire_in: 1 week
+
+build:wallet-service:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - cd services/wallet
+    - go mod download
+    - go build -o wallet-service cmd/main.go
+    - docker build -t ${DOCKER_REGISTRY}/exc-wallet-service:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/exc-wallet-service:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - services/wallet/wallet-service
+    expire_in: 1 week
+
+build:compliance-service:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - cd services/compliance
+    - go mod download
+    - go build -o compliance-service cmd/main.go
+    - docker build -t ${DOCKER_REGISTRY}/exc-compliance-service:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/exc-compliance-service:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - services/compliance/compliance-service
+    expire_in: 1 week
+
+build:risk-service:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - cd services/risk
+    - go mod download
+    - go build -o risk-service cmd/main.go
+    - docker build -t ${DOCKER_REGISTRY}/exc-risk-service:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/exc-risk-service:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - services/risk/risk-service
+    expire_in: 1 week
+
+build:treasury-service:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - cd services/treasury
+    - go mod download
+    - go build -o treasury-service cmd/main.go
+    - docker build -t ${DOCKER_REGISTRY}/exc-treasury-service:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/exc-treasury-service:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - services/treasury/treasury-service
+    expire_in: 1 week
+
+## Security Stage
+security:sbom:
+  stage: security
+  image: anchore/syft:latest
+  script:
+    - syft packages . -o json > sbom.json
+    - syft packages . -o cyclonedx-json > sbom-cdx.json
+  artifacts:
+    paths:
+      - sbom.json
+      - sbom-cdx.json
+    expire_in: 1 month
+
+security:scan:images:
+  stage: security
+  image: aquasec/trivy:latest
+  script:
+    - trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json ${DOCKER_REGISTRY}/exc-bff-web:${CI_COMMIT_SHA}
+    - trivy image --severity HIGH,CRITICAL --format json --output trivy-wallet.json ${DOCKER_REGISTRY}/exc-wallet-service:${CI_COMMIT_SHA}
+    - trivy image --severity HIGH,CRITICAL --format json --output trivy-compliance.json ${DOCKER_REGISTRY}/exc-compliance-service:${CI_COMMIT_SHA}
+    - trivy image --severity HIGH,CRITICAL --format json --output trivy-risk.json ${DOCKER_REGISTRY}/exc-risk-service:${CI_COMMIT_SHA}
+    - trivy image --severity HIGH,CRITICAL --format json --output trivy-treasury.json ${DOCKER_REGISTRY}/exc-treasury-service:${CI_COMMIT_SHA}
+  artifacts:
+    paths:
+      - trivy-*.json
+    expire_in: 1 month
+
+security:sign:images:
+  stage: security
+  image: gcr.io/projectsigstore/cosign:latest
+  script:
+    - cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-bff-web:${CI_COMMIT_SHA}
+    - cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-wallet-service:${CI_COMMIT_SHA}
+    - cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-compliance-service:${CI_COMMIT_SHA}
+    - cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-risk-service:${CI_COMMIT_SHA}
+    - cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-treasury-service:${CI_COMMIT_SHA}
+  dependencies:
+    - build:bff-web
+    - build:wallet-service
+    - build:compliance-service
+    - build:risk-service
+    - build:treasury-service
+
+## Deploy Staging Stage
+deploy:staging:
+  stage: deploy-staging
+  image: alpine/helm:${HELM_VERSION}
+  environment:
+    name: staging
+    url: https://staging.exc.local
+  script:
+    - echo "Deploying to staging environment"
+    - sed -i "s/tag: \"latest\"/tag: \"${CI_COMMIT_SHA}\"/g" infrastructure/kubernetes/helm/exc/values.yaml
+    - helm upgrade --install exc-staging ./infrastructure/kubernetes/helm/exc \
+        --namespace staging \
+        --create-namespace \
+        --set global.environment=staging \
+        --set global.imageTag=${CI_COMMIT_SHA}
+  dependencies:
+    - security:sign:images
+  only:
+    - develop
+
+## Integration Test Stage
+integration:test:
+  stage: integration-test
+  image: node:${NODE_VERSION}
+  environment:
+    name: staging
+    url: https://staging.exc.local
+  script:
+    - echo "Waiting for services to be ready..."
+    - sleep 30
+    - cd tests/integration
+    - npm install
+    - npm test
+  dependencies:
+    - deploy:staging
+  only:
+    - develop
+
+## Deploy Production Stage
+deploy:production:
+  stage: deploy-production
+  image: alpine/helm:${HELM_VERSION}
+  environment:
+    name: production
+    url: https://api.exc.local
+  script:
+    - echo "Deploying to production environment"
+    - sed -i "s/tag: \"latest\"/tag: \"${CI_COMMIT_SHA}\"/g" infrastructure/kubernetes/helm/exc/values.yaml
+    - helm upgrade --install exc ./infrastructure/kubernetes/helm/exc \
+        --namespace production \
+        --create-namespace \
+        --set global.environment=production \
+        --set global.imageTag=${CI_COMMIT_SHA}
+  dependencies:
+    - security:sign:images
+  only:
+    - main
+  when: manual
+
+## Post Deploy Stage
+post:deploy:health-check:
+  stage: post-deploy
+  image: curlimages/curl:latest
+  script:
+    - echo "Performing health checks..."
+    - curl -f http://api-gateway/api/health || exit 1
+    - curl -f http://wallet-service:8080/health || exit 1
+    - curl -f http://compliance-service:8080/health || exit 1
+    - curl -f http://risk-service:8080/health || exit 1
+    - curl -f http://treasury-service:8080/health || exit 1
+  dependencies:
+    - deploy:production
+  only:
+    - main
+
+post:deploy:metrics:
+  stage: post-deploy
+  image: curlimages/curl:latest
+  script:
+    - echo "Checking metrics endpoints..."
+    - curl -f http://wallet-service:8080/metrics || exit 1
+    - curl -f http://compliance-service:8080/metrics || exit 1
+    - curl -f http://risk-service:8080/metrics || exit 1
+    - curl -f http://treasury-service:8080/metrics || exit 1
+  dependencies:
+    - deploy:production
+  only:
+    - main
+
+# Notifications
+notify:success:
+  stage: .post
+  image: curlimages/curl:latest
+  script:
+    - echo "Pipeline completed successfully!"
+    - echo "Build: ${CI_COMMIT_SHA}"
+    - echo "Branch: ${CI_COMMIT_REF_NAME}"
+  when: on_success
+  allow_failure: true
+
+notify:failure:
+  stage: .post
+  image: curlimages/curl:latest
+  script:
+    - echo "Pipeline failed!"
+    - echo "Build: ${CI_COMMIT_SHA}"
+    - echo "Branch: ${CI_COMMIT_REF_NAME}"
+  when: on_failure
+  allow_failure: true
+
+# Global settings
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_TAG
+
+# Resource limits
+default:
+  before_script:
+    - echo "Starting job for ${CI_JOB_NAME}"
+  after_script:
+    - echo "Completed job for ${CI_JOB_NAME}"
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure

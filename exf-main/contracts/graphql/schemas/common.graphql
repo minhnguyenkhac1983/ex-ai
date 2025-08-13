@@ -1,0 +1,329 @@
+# Common GraphQL Schema
+
+# Common types used across multiple domains
+
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: UserRole!
+  permissions: [Permission!]!
+  memberId: ID
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  lastLoginAt: DateTime
+  isActive: Boolean!
+}
+
+type Member {
+  id: ID!
+  code: String!
+  name: String!
+  type: MemberType!
+  status: MemberStatus!
+  tradingStatus: TradingStatus!
+  riskProfile: RiskProfile!
+  limits: MemberLimits!
+  contacts: [Contact!]!
+  accounts: [Account!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Account {
+  id: ID!
+  memberId: ID!
+  accountNumber: String!
+  type: AccountType!
+  currency: String!
+  balance: Float!
+  availableBalance: Float!
+  marginBalance: Float!
+  status: AccountStatus!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Contact {
+  id: ID!
+  memberId: ID!
+  type: ContactType!
+  name: String!
+  email: String
+  phone: String
+  isPrimary: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Security {
+  id: ID!
+  symbol: String!
+  name: String!
+  type: SecurityType!
+  exchange: String!
+  currency: String!
+  lotSize: Int!
+  tickSize: Float!
+  status: SecurityStatus!
+  listingDate: DateTime!
+  delistingDate: DateTime
+  metadata: JSON!
+}
+
+type Market {
+  id: ID!
+  code: String!
+  name: String!
+  type: MarketType!
+  timezone: String!
+  tradingHours: [TradingSession!]!
+  holidays: [DateTime!]!
+  status: MarketStatus!
+}
+
+type TradingSession {
+  id: ID!
+  marketId: ID!
+  name: String!
+  startTime: String!
+  endTime: String!
+  days: [DayOfWeek!]!
+  isActive: Boolean!
+}
+
+type Notification {
+  id: ID!
+  userId: ID!
+  type: NotificationType!
+  title: String!
+  message: String!
+  severity: NotificationSeverity!
+  isRead: Boolean!
+  createdAt: DateTime!
+  readAt: DateTime
+  metadata: JSON
+}
+
+type AuditLog {
+  id: ID!
+  userId: ID!
+  action: String!
+  resource: String!
+  resourceId: ID!
+  details: JSON!
+  ipAddress: String!
+  userAgent: String!
+  timestamp: DateTime!
+}
+
+type Error {
+  code: String!
+  message: String!
+  details: JSON
+  timestamp: DateTime!
+}
+
+type PaginationInfo {
+  page: Int!
+  pageSize: Int!
+  totalPages: Int!
+  totalItems: Int!
+  hasNext: Boolean!
+  hasPrevious: Boolean!
+}
+
+type Connection {
+  edges: [Edge!]!
+  pageInfo: PaginationInfo!
+}
+
+type Edge {
+  node: Node!
+  cursor: String!
+}
+
+interface Node {
+  id: ID!
+}
+
+# Enums
+enum UserRole {
+  ADMIN
+  TRADER
+  ANALYST
+  COMPLIANCE
+  OPERATIONS
+  VIEWER
+}
+
+enum Permission {
+  READ_ORDERS
+  WRITE_ORDERS
+  READ_PORTFOLIO
+  READ_MARKET_DATA
+  READ_ANALYTICS
+  READ_RISK
+  WRITE_RISK
+  READ_COMPLIANCE
+  WRITE_COMPLIANCE
+  READ_OPERATIONS
+  WRITE_OPERATIONS
+}
+
+enum MemberType {
+  INSTITUTIONAL
+  RETAIL
+  MARKET_MAKER
+  PROPRIETARY
+  FOREIGN
+}
+
+enum MemberStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+  PENDING
+}
+
+enum TradingStatus {
+  ACTIVE
+  SUSPENDED
+  RESTRICTED
+  CLOSED
+}
+
+enum RiskProfile {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+  CUSTOM
+}
+
+enum AccountType {
+  CASH
+  MARGIN
+  DERIVATIVES
+  CUSTODY
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+  PENDING
+}
+
+enum ContactType {
+  PRIMARY
+  TRADING
+  COMPLIANCE
+  OPERATIONS
+  TECHNICAL
+}
+
+enum SecurityType {
+  EQUITY
+  BOND
+  OPTION
+  FUTURE
+  ETF
+  MUTUAL_FUND
+  FOREX
+  COMMODITY
+}
+
+enum SecurityStatus {
+  ACTIVE
+  SUSPENDED
+  DELISTED
+  PENDING
+}
+
+enum MarketType {
+  EQUITY
+  DERIVATIVES
+  FOREX
+  COMMODITY
+  BOND
+}
+
+enum MarketStatus {
+  OPEN
+  CLOSED
+  PRE_MARKET
+  AFTER_HOURS
+  HOLIDAY
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  TRADE_UPDATE
+  RISK_ALERT
+  SYSTEM_ALERT
+  MARKET_UPDATE
+  COMPLIANCE_ALERT
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+# Input types
+input PaginationInput {
+  page: Int = 1
+  pageSize: Int = 20
+}
+
+input SortInput {
+  field: String!
+  direction: SortDirection!
+}
+
+input FilterInput {
+  field: String!
+  operator: FilterOperator!
+  value: String!
+}
+
+# Enums for inputs
+enum SortDirection {
+  ASC
+  DESC
+}
+
+enum FilterOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  LESS_THAN
+  GREATER_THAN_EQUALS
+  LESS_THAN_EQUALS
+  CONTAINS
+  NOT_CONTAINS
+  IN
+  NOT_IN
+  IS_NULL
+  IS_NOT_NULL
+}
+
+# Scalars
+scalar JSON
+scalar DateTime
+scalar UUID
+scalar Decimal

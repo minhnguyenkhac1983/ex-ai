@@ -1,0 +1,16 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: critical-services
+value: 100000
+globalDefault: false
+description: "Priority for critical exchange services (wallet, trading, market-data)"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: standard-services
+value: 50000
+globalDefault: false
+description: "Priority for standard services"
+

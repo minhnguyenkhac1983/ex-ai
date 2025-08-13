@@ -1,0 +1,26 @@
+{
+  "$id": "https://exf.example.com/events/TradeCreated.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TradeCreated",
+  "type": "object",
+  "required": [
+    "eventId", "eventType", "version", "occurredAt",
+    "tradeId", "instrumentId", "price", "quantity", "buyOrderId", "sellOrderId", "buyMemberId", "sellMemberId"
+  ],
+  "properties": {
+    "eventId": { "type": "string" },
+    "eventType": { "type": "string", "const": "TradeCreated" },
+    "version": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "tradeId": { "type": "string" },
+    "instrumentId": { "type": "string" },
+    "price": { "type": "string" },
+    "quantity": { "type": "string" },
+    "buyOrderId": { "type": "string" },
+    "sellOrderId": { "type": "string" },
+    "buyMemberId": { "type": "string" },
+    "sellMemberId": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+

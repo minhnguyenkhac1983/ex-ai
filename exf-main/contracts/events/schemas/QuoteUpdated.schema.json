@@ -1,0 +1,20 @@
+{
+  "$id": "https://exf.example.com/events/QuoteUpdated.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuoteUpdated",
+  "type": "object",
+  "required": ["eventId", "eventType", "version", "occurredAt", "instrumentId", "bidPrice", "bidQty", "askPrice", "askQty"],
+  "properties": {
+    "eventId": { "type": "string" },
+    "eventType": { "type": "string", "const": "QuoteUpdated" },
+    "version": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "instrumentId": { "type": "string" },
+    "bidPrice": { "type": "string" },
+    "bidQty": { "type": "string" },
+    "askPrice": { "type": "string" },
+    "askQty": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+

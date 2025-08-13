@@ -1,0 +1,502 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: exc-pipeline
+  namespace: tekton-pipelines
+spec:
+  description: "Crypto Exchange Platform CI/CD Pipeline"
+  
+  workspaces:
+    - name: shared-workspace
+      description: "Shared workspace for all tasks"
+    - name: docker-config
+      description: "Docker configuration for registry access"
+  
+  params:
+    - name: git-url
+      type: string
+      description: "Git repository URL"
+      default: "https://github.com/your-org/exc"
+    - name: git-revision
+      type: string
+      description: "Git revision to checkout"
+      default: "main"
+    - name: docker-registry
+      type: string
+      description: "Docker registry URL"
+      default: "localhost:5000"
+    - name: image-tag
+      type: string
+      description: "Docker image tag"
+      default: "latest"
+    - name: environment
+      type: string
+      description: "Deployment environment"
+      default: "staging"
+  
+  tasks:
+    # Task 1: Fetch Repository
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: subdirectory
+          value: ""
+        - name: deleteExisting
+          value: "true"
+    
+    # Task 2: Install Dependencies
+    - name: install-dependencies
+      runAfter: ["fetch-repository"]
+      taskRef:
+        name: install-deps
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: node-version
+          value: "18"
+        - name: go-version
+          value: "1.21"
+    
+    # Task 3: Lint and Validate
+    - name: lint-validate
+      runAfter: ["install-dependencies"]
+      taskRef:
+        name: lint-validate
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: node-version
+          value: "18"
+        - name: go-version
+          value: "1.21"
+    
+    # Task 4: Run Tests
+    - name: run-tests
+      runAfter: ["lint-validate"]
+      taskRef:
+        name: run-tests
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: node-version
+          value: "18"
+        - name: go-version
+          value: "1.21"
+    
+    # Task 5: Security Scan
+    - name: security-scan
+      runAfter: ["run-tests"]
+      taskRef:
+        name: security-scan
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: docker-registry
+          value: $(params.docker-registry)
+        - name: image-tag
+          value: $(params.image-tag)
+    
+    # Task 6: Build Images
+    - name: build-images
+      runAfter: ["security-scan"]
+      taskRef:
+        name: build-images
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: docker-config
+          workspace: docker-config
+      params:
+        - name: docker-registry
+          value: $(params.docker-registry)
+        - name: image-tag
+          value: $(params.image-tag)
+    
+    # Task 7: Sign Images
+    - name: sign-images
+      runAfter: ["build-images"]
+      taskRef:
+        name: sign-images
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: docker-registry
+          value: $(params.docker-registry)
+        - name: image-tag
+          value: $(params.image-tag)
+    
+    # Task 8: Deploy to Environment
+    - name: deploy
+      runAfter: ["sign-images"]
+      taskRef:
+        name: deploy-helm
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+      params:
+        - name: environment
+          value: $(params.environment)
+        - name: image-tag
+          value: $(params.image-tag)
+    
+    # Task 9: Health Check
+    - name: health-check
+      runAfter: ["deploy"]
+      taskRef:
+        name: health-check
+      params:
+        - name: environment
+          value: $(params.environment)
+        - name: timeout
+          value: "300s"
+
+---
+# Task Definitions
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: install-deps
+  namespace: tekton-pipelines
+spec:
+  description: "Install Node.js and Go dependencies"
+  workspaces:
+    - name: source
+  params:
+    - name: node-version
+      type: string
+      default: "18"
+    - name: go-version
+      type: string
+      default: "1.21"
+  steps:
+    - name: install-node-deps
+      image: node:$(params.node-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd apps/bff-web
+        npm ci --no-audit --no-fund
+      volumeMounts:
+        - name: npm-cache
+          mountPath: /root/.npm
+    - name: install-go-deps
+      image: golang:$(params.go-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd services/wallet && go mod download
+        cd ../compliance && go mod download
+        cd ../risk && go mod download
+        cd ../treasury && go mod download
+  volumes:
+    - name: npm-cache
+      emptyDir: {}
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: lint-validate
+  namespace: tekton-pipelines
+spec:
+  description: "Lint and validate code"
+  workspaces:
+    - name: source
+  params:
+    - name: node-version
+      type: string
+      default: "18"
+    - name: go-version
+      type: string
+      default: "1.21"
+  steps:
+    - name: lint-typescript
+      image: node:$(params.node-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd apps/bff-web
+        npm run lint
+    - name: lint-go
+      image: golangci/golangci-lint:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd services/wallet && golangci-lint run
+        cd ../compliance && golangci-lint run
+        cd ../risk && golangci-lint run
+        cd ../treasury && golangci-lint run
+    - name: validate-database
+      image: arigaio/atlas:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        atlas schema lint --dev-url "docker://postgres/15/dev?search_path=public" --dir "file://database/migrations"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-tests
+  namespace: tekton-pipelines
+spec:
+  description: "Run unit and integration tests"
+  workspaces:
+    - name: source
+  params:
+    - name: node-version
+      type: string
+      default: "18"
+    - name: go-version
+      type: string
+      default: "1.21"
+  steps:
+    - name: test-node
+      image: node:$(params.node-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd apps/bff-web
+        npm run test
+    - name: test-go
+      image: golang:$(params.go-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd services/wallet && go test ./...
+        cd ../compliance && go test ./...
+        cd ../risk && go test ./...
+        cd ../treasury && go test ./...
+    - name: test-contract
+      image: node:$(params.node-version)
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd apps/bff-web
+        npm run pact:verify:wallet
+    - name: test-load
+      image: grafana/k6:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        k6 run tests/load/wallet-k6.js
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: security-scan
+  namespace: tekton-pipelines
+spec:
+  description: "Run security scans"
+  workspaces:
+    - name: source
+  params:
+    - name: docker-registry
+      type: string
+    - name: image-tag
+      type: string
+  steps:
+    - name: generate-sbom
+      image: anchore/syft:latest
+      workingDir: $(workspaces.source.path)
+      script: |
+        syft packages . -o json > sbom.json
+        syft packages . -o cyclonedx-json > sbom-cdx.json
+    - name: scan-dependencies
+      image: node:18
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd apps/bff-web
+        npm audit --audit-level moderate
+    - name: scan-go-deps
+      image: golang:1.21
+      workingDir: $(workspaces.source.path)
+      script: |
+        cd services/wallet && govulncheck ./...
+        cd ../compliance && govulncheck ./...
+        cd ../risk && govulncheck ./...
+        cd ../treasury && govulncheck ./...
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-images
+  namespace: tekton-pipelines
+spec:
+  description: "Build Docker images"
+  workspaces:
+    - name: source
+    - name: docker-config
+  params:
+    - name: docker-registry
+      type: string
+    - name: image-tag
+      type: string
+  steps:
+    - name: build-bff-web
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=apps/bff-web/Dockerfile
+        - --context=$(workspaces.source.path)/apps/bff-web
+        - --destination=$(params.docker-registry)/exc-bff-web:$(params.image-tag)
+        - --insecure
+        - --skip-tls-verify
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+    - name: build-wallet-service
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=services/wallet/Dockerfile
+        - --context=$(workspaces.source.path)/services/wallet
+        - --destination=$(params.docker-registry)/exc-wallet-service:$(params.image-tag)
+        - --insecure
+        - --skip-tls-verify
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+    - name: build-compliance-service
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=services/compliance/Dockerfile
+        - --context=$(workspaces.source.path)/services/compliance
+        - --destination=$(params.docker-registry)/exc-compliance-service:$(params.image-tag)
+        - --insecure
+        - --skip-tls-verify
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+    - name: build-risk-service
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=services/risk/Dockerfile
+        - --context=$(workspaces.source.path)/services/risk
+        - --destination=$(params.docker-registry)/exc-risk-service:$(params.image-tag)
+        - --insecure
+        - --skip-tls-verify
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+    - name: build-treasury-service
+      image: gcr.io/kaniko-project/executor:latest
+      args:
+        - --dockerfile=services/treasury/Dockerfile
+        - --context=$(workspaces.source.path)/services/treasury
+        - --destination=$(params.docker-registry)/exc-treasury-service:$(params.image-tag)
+        - --insecure
+        - --skip-tls-verify
+      volumeMounts:
+        - name: docker-config
+          mountPath: /kaniko/.docker
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: sign-images
+  namespace: tekton-pipelines
+spec:
+  description: "Sign Docker images with Cosign"
+  workspaces:
+    - name: source
+  params:
+    - name: docker-registry
+      type: string
+    - name: image-tag
+      type: string
+  steps:
+    - name: sign-bff-web
+      image: gcr.io/projectsigstore/cosign:latest
+      script: |
+        cosign sign --key cosign.key $(params.docker-registry)/exc-bff-web:$(params.image-tag)
+    - name: sign-wallet-service
+      image: gcr.io/projectsigstore/cosign:latest
+      script: |
+        cosign sign --key cosign.key $(params.docker-registry)/exc-wallet-service:$(params.image-tag)
+    - name: sign-compliance-service
+      image: gcr.io/projectsigstore/cosign:latest
+      script: |
+        cosign sign --key cosign.key $(params.docker-registry)/exc-compliance-service:$(params.image-tag)
+    - name: sign-risk-service
+      image: gcr.io/projectsigstore/cosign:latest
+      script: |
+        cosign sign --key cosign.key $(params.docker-registry)/exc-risk-service:$(params.image-tag)
+    - name: sign-treasury-service
+      image: gcr.io/projectsigstore/cosign:latest
+      script: |
+        cosign sign --key cosign.key $(params.docker-registry)/exc-treasury-service:$(params.image-tag)
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-helm
+  namespace: tekton-pipelines
+spec:
+  description: "Deploy to Kubernetes using Helm"
+  workspaces:
+    - name: source
+  params:
+    - name: environment
+      type: string
+    - name: image-tag
+      type: string
+  steps:
+    - name: deploy
+      image: alpine/helm:3.12.0
+      workingDir: $(workspaces.source.path)
+      script: |
+        # Update image tags in values.yaml
+        sed -i "s/tag: \"latest\"/tag: \"$(params.image-tag)\"/g" infrastructure/kubernetes/helm/exc/values.yaml
+        
+        # Deploy using Helm
+        helm upgrade --install exc-$(params.environment) ./infrastructure/kubernetes/helm/exc \
+          --namespace $(params.environment) \
+          --create-namespace \
+          --set global.environment=$(params.environment) \
+          --set global.imageTag=$(params.image-tag)
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: health-check
+  namespace: tekton-pipelines
+spec:
+  description: "Perform health checks after deployment"
+  params:
+    - name: environment
+      type: string
+    - name: timeout
+      type: string
+      default: "300s"
+  steps:
+    - name: wait-for-services
+      image: bitnami/kubectl:latest
+      script: |
+        kubectl wait --for=condition=ready pod -l app=exc-wallet-service -n $(params.environment) --timeout=$(params.timeout)
+        kubectl wait --for=condition=ready pod -l app=exc-compliance-service -n $(params.environment) --timeout=$(params.timeout)
+        kubectl wait --for=condition=ready pod -l app=exc-risk-service -n $(params.environment) --timeout=$(params.timeout)
+        kubectl wait --for=condition=ready pod -l app=exc-treasury-service -n $(params.environment) --timeout=$(params.timeout)
+    - name: health-check
+      image: curlimages/curl:latest
+      script: |
+        # Health checks
+        curl -f http://api-gateway/api/health || exit 1
+        curl -f http://wallet-service:8080/health || exit 1
+        curl -f http://compliance-service:8080/health || exit 1
+        curl -f http://risk-service:8080/health || exit 1
+        curl -f http://treasury-service:8080/health || exit 1
+        
+        # Metrics checks
+        curl -f http://wallet-service:8080/metrics || exit 1
+        curl -f http://compliance-service:8080/metrics || exit 1
+        curl -f http://risk-service:8080/metrics || exit 1
+        curl -f http://treasury-service:8080/metrics || exit 1

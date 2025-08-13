@@ -1,0 +1,216 @@
+# Analytics BFF Federation Configuration
+
+service:
+  name: analytics-bff
+  version: 1.0.0
+
+federation:
+  version: 2
+  directives:
+    - @key
+    - @extends
+    - @external
+    - @requires
+    - @provides
+
+schema:
+  path: ../../schemas/analytics.graphql
+  path: ../../schemas/common.graphql
+
+resolvers:
+  # Portfolio Analytics resolvers
+  Query.portfolioAnalytics:
+    service: portfolio-analytics
+    method: getPortfolioAnalytics
+  
+  Query.performanceAttribution:
+    service: performance-analytics
+    method: getPerformanceAttribution
+  
+  Query.riskAnalytics:
+    service: risk-service
+    method: getRiskAnalytics
+  
+  # Market Analytics resolvers
+  Query.marketAnalytics:
+    service: market-data
+    method: getMarketAnalytics
+  
+  Query.sectorAnalytics:
+    service: market-data
+    method: getSectorAnalytics
+  
+  # Custom Reports resolvers
+  Query.customReport:
+    service: portfolio-analytics
+    method: getCustomReport
+  
+  Query.availableReports:
+    service: portfolio-analytics
+    method: getAvailableReports
+  
+  # Benchmark Analysis resolvers
+  Query.benchmarkComparison:
+    service: performance-analytics
+    method: getBenchmarkComparison
+
+subscriptions:
+  # Real-time analytics updates
+  portfolioAnalyticsUpdates:
+    service: portfolio-analytics
+    event: PortfolioAnalyticsUpdated
+  
+  riskAnalyticsUpdates:
+    service: risk-service
+    event: RiskAnalyticsUpdated
+  
+  marketAnalyticsUpdates:
+    service: market-data
+    event: MarketAnalyticsUpdated
+
+entities:
+  PortfolioAnalytics:
+    key: "memberId"
+    resolvers:
+      - service: portfolio-analytics
+        method: getPortfolioAnalytics
+  
+  PerformanceAttribution:
+    key: "memberId"
+    resolvers:
+      - service: performance-analytics
+        method: getPerformanceAttribution
+  
+  RiskAnalytics:
+    key: "memberId"
+    resolvers:
+      - service: risk-service
+        method: getRiskAnalytics
+  
+  MarketAnalytics:
+    key: "symbol"
+    resolvers:
+      - service: market-data
+        method: getMarketAnalytics
+
+caching:
+  enabled: true
+  ttl: 300  # 5 minutes for analytics data
+  keys:
+    - "portfolioAnalytics:{memberId}:{period}"
+    - "performanceAttribution:{memberId}:{period}"
+    - "riskAnalytics:{memberId}:{period}"
+    - "marketAnalytics:{symbol}:{period}"
+    - "sectorAnalytics:{sector}:{period}"
+
+rateLimit:
+  enabled: true
+  windowMs: 300000  # 5 minutes
+  max: 50  # 50 requests per 5 minutes per user
+
+authentication:
+  required: true
+  type: JWT
+  header: Authorization
+  audience: analytics-bff
+  issuer: iam-security
+
+authorization:
+  enabled: true
+  policies:
+    - resource: "portfolioAnalytics"
+      actions: ["read"]
+      roles: ["ANALYST", "TRADER", "ADMIN"]
+    
+    - resource: "performanceAttribution"
+      actions: ["read"]
+      roles: ["ANALYST", "ADMIN"]
+    
+    - resource: "riskAnalytics"
+      actions: ["read"]
+      roles: ["RISK", "ANALYST", "ADMIN"]
+    
+    - resource: "marketAnalytics"
+      actions: ["read"]
+      roles: ["ANALYST", "TRADER", "VIEWER"]
+    
+    - resource: "customReports"
+      actions: ["read", "write"]
+      roles: ["ANALYST", "ADMIN"]
+
+dataProcessing:
+  batchSize: 1000
+  timeout: 30000  # 30 seconds
+  retries: 3
+  
+  # Aggregation strategies
+  aggregation:
+    portfolioAnalytics:
+      strategy: "real-time"
+      cache: true
+      ttl: 300
+    
+    performanceAttribution:
+      strategy: "batch"
+      schedule: "0 */15 * * * *"  # Every 15 minutes
+      cache: true
+      ttl: 900
+    
+    riskAnalytics:
+      strategy: "real-time"
+      cache: true
+      ttl: 60
+    
+    marketAnalytics:
+      strategy: "streaming"
+      cache: true
+      ttl: 30
+
+monitoring:
+  metrics:
+    enabled: true
+    endpoint: /metrics
+    customMetrics:
+      - queryComplexity
+      - dataProcessingTime
+      - cacheHitRate
+  
+  tracing:
+    enabled: true
+    sampling: 0.1
+    spans:
+      - dataProcessing
+      - aggregation
+      - caching
+  
+  logging:
+    level: info
+    format: json
+    fields:
+      service: analytics-bff
+      environment: ${NODE_ENV}
+
+healthCheck:
+  enabled: true
+  endpoint: /health
+  dependencies:
+    - portfolio-analytics
+    - performance-analytics
+    - risk-service
+    - market-data
+    - data-platform
+
+performance:
+  queryComplexity:
+    enabled: true
+    maxComplexity: 1000
+  
+  dataLoader:
+    enabled: true
+    batchSize: 100
+    cache: true
+  
+  compression:
+    enabled: true
+    algorithm: gzip
+    threshold: 1024

@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Trade",
+  "description": "Trade event schema for Securities Exchange System",
+  "type": "object",
+  "properties": {
+    "tradeId": {
+      "type": "string",
+      "description": "Unique trade identifier",
+      "pattern": "^[A-Z0-9]{16}$"
+    },
+    "orderId": {
+      "type": "string",
+      "description": "Original order identifier"
+    },
+    "symbol": {
+      "type": "string",
+      "description": "Trading symbol",
+      "pattern": "^[A-Z]{1,10}$"
+    },
+    "side": {
+      "type": "string",
+      "enum": ["BUY", "SELL"],
+      "description": "Trade side"
+    },
+    "quantity": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Trade quantity"
+    },
+    "price": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "integer",
+          "description": "Price value in smallest currency unit"
+        },
+        "scale": {
+          "type": "integer",
+          "description": "Decimal scale"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["USD", "EUR", "VND"],
+          "description": "Currency code"
+        }
+      },
+      "required": ["value", "scale", "currency"]
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Trade timestamp in milliseconds"
+    },
+    "buyerMemberId": {
+      "type": "string",
+      "description": "Buyer member identifier"
+    },
+    "sellerMemberId": {
+      "type": "string",
+      "description": "Seller member identifier"
+    },
+    "buyerAccountId": {
+      "type": "string",
+      "description": "Buyer account identifier"
+    },
+    "sellerAccountId": {
+      "type": "string",
+      "description": "Seller account identifier"
+    },
+    "tradeType": {
+      "type": "string",
+      "enum": ["REGULAR", "AUCTION", "BLOCK"],
+      "description": "Type of trade"
+    },
+    "clearingStatus": {
+      "type": "string",
+      "enum": ["PENDING", "CLEARED", "FAILED"],
+      "description": "Clearing status"
+    }
+  },
+  "required": [
+    "tradeId",
+    "orderId",
+    "symbol",
+    "side",
+    "quantity",
+    "price",
+    "timestamp",
+    "buyerMemberId",
+    "sellerMemberId",
+    "buyerAccountId",
+    "sellerAccountId",
+    "tradeType",
+    "clearingStatus"
+  ],
+  "additionalProperties": false
+}

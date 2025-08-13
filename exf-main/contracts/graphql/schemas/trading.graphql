@@ -1,0 +1,220 @@
+# Trading Domain GraphQL Schema
+
+type Query {
+  # Order Management
+  orders(memberId: ID!, status: OrderStatus): [Order!]!
+  order(id: ID!): Order
+  
+  # Portfolio
+  portfolio(memberId: ID!): Portfolio
+  positions(memberId: ID!): [Position!]!
+  
+  # Market Data
+  marketData(symbol: String!): MarketData
+  orderBook(symbol: String!): OrderBook
+  trades(symbol: String!, limit: Int): [Trade!]!
+  
+  # Risk
+  riskMetrics(memberId: ID!): RiskMetrics
+  marginRequirements(memberId: ID!): MarginRequirements
+}
+
+type Subscription {
+  # Real-time updates
+  orderUpdates(memberId: ID!): OrderUpdate!
+  marketDataUpdates(symbol: String!): MarketDataUpdate!
+  portfolioUpdates(memberId: ID!): PortfolioUpdate!
+  riskAlerts(memberId: ID!): RiskAlert!
+}
+
+type Order {
+  id: ID!
+  memberId: ID!
+  symbol: String!
+  side: OrderSide!
+  quantity: Float!
+  price: Float
+  orderType: OrderType!
+  status: OrderStatus!
+  timeInForce: TimeInForce!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  filledQuantity: Float!
+  averagePrice: Float
+  executions: [Execution!]!
+}
+
+type Execution {
+  id: ID!
+  orderId: ID!
+  quantity: Float!
+  price: Float!
+  timestamp: DateTime!
+  tradeId: ID!
+}
+
+type Portfolio {
+  memberId: ID!
+  totalValue: Float!
+  cashBalance: Float!
+  marginBalance: Float!
+  positions: [Position!]!
+  pnl: Float!
+  unrealizedPnl: Float!
+  realizedPnl: Float!
+}
+
+type Position {
+  symbol: String!
+  quantity: Float!
+  averagePrice: Float!
+  marketValue: Float!
+  unrealizedPnl: Float!
+  marginRequirement: Float!
+}
+
+type MarketData {
+  symbol: String!
+  lastPrice: Float!
+  bid: Float
+  ask: Float
+  volume: Int!
+  high: Float!
+  low: Float!
+  open: Float!
+  change: Float!
+  changePercent: Float!
+  timestamp: DateTime!
+}
+
+type OrderBook {
+  symbol: String!
+  bids: [OrderBookEntry!]!
+  asks: [OrderBookEntry!]!
+  timestamp: DateTime!
+}
+
+type OrderBookEntry {
+  price: Float!
+  quantity: Float!
+  orders: Int!
+}
+
+type Trade {
+  id: ID!
+  symbol: String!
+  quantity: Float!
+  price: Float!
+  timestamp: DateTime!
+  side: TradeSide!
+}
+
+type RiskMetrics {
+  memberId: ID!
+  var95: Float!
+  var99: Float!
+  maxDrawdown: Float!
+  sharpeRatio: Float!
+  beta: Float!
+  correlation: Float!
+}
+
+type MarginRequirements {
+  memberId: ID!
+  initialMargin: Float!
+  maintenanceMargin: Float!
+  availableMargin: Float!
+  marginUtilization: Float!
+}
+
+# Enums
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP
+  STOP_LIMIT
+}
+
+enum OrderStatus {
+  PENDING
+  PARTIAL
+  FILLED
+  CANCELLED
+  REJECTED
+}
+
+enum TimeInForce {
+  DAY
+  GTC
+  IOC
+  FOK
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+# Input types
+input CreateOrderInput {
+  symbol: String!
+  side: OrderSide!
+  quantity: Float!
+  price: Float
+  orderType: OrderType!
+  timeInForce: TimeInForce!
+}
+
+input CancelOrderInput {
+  orderId: ID!
+}
+
+# Update types
+type OrderUpdate {
+  order: Order!
+  updateType: OrderUpdateType!
+}
+
+type MarketDataUpdate {
+  marketData: MarketData!
+}
+
+type PortfolioUpdate {
+  portfolio: Portfolio!
+}
+
+type RiskAlert {
+  memberId: ID!
+  alertType: RiskAlertType!
+  message: String!
+  severity: AlertSeverity!
+  timestamp: DateTime!
+}
+
+enum OrderUpdateType {
+  CREATED
+  UPDATED
+  FILLED
+  CANCELLED
+}
+
+enum RiskAlertType {
+  MARGIN_CALL
+  POSITION_LIMIT
+  VAR_BREACH
+  LOSS_LIMIT
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+scalar DateTime

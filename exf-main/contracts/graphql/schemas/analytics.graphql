@@ -1,0 +1,370 @@
+# Analytics Domain GraphQL Schema
+
+type Query {
+  # Portfolio Analytics
+  portfolioAnalytics(memberId: ID!, period: Period!): PortfolioAnalytics!
+  performanceAttribution(memberId: ID!, period: Period!): PerformanceAttribution!
+  riskAnalytics(memberId: ID!, period: Period!): RiskAnalytics!
+  
+  # Market Analytics
+  marketAnalytics(symbol: String!, period: Period!): MarketAnalytics!
+  sectorAnalytics(sector: String!, period: Period!): SectorAnalytics!
+  
+  # Custom Reports
+  customReport(reportId: ID!): CustomReport!
+  availableReports: [ReportTemplate!]!
+  
+  # Benchmark Analysis
+  benchmarkComparison(memberId: ID!, benchmark: String!, period: Period!): BenchmarkComparison!
+}
+
+type Subscription {
+  # Real-time analytics updates
+  portfolioAnalyticsUpdates(memberId: ID!): PortfolioAnalyticsUpdate!
+  riskAnalyticsUpdates(memberId: ID!): RiskAnalyticsUpdate!
+  marketAnalyticsUpdates(symbol: String!): MarketAnalyticsUpdate!
+}
+
+type PortfolioAnalytics {
+  memberId: ID!
+  period: Period!
+  
+  # Performance Metrics
+  totalReturn: Float!
+  annualizedReturn: Float!
+  volatility: Float!
+  sharpeRatio: Float!
+  sortinoRatio: Float!
+  maxDrawdown: Float!
+  calmarRatio: Float!
+  
+  # Risk Metrics
+  var95: Float!
+  var99: Float!
+  cvar95: Float!
+  cvar99: Float!
+  beta: Float!
+  alpha: Float!
+  informationRatio: Float!
+  trackingError: Float!
+  
+  # Attribution
+  assetAllocation: [AssetAllocation!]!
+  factorExposure: [FactorExposure!]!
+  sectorExposure: [SectorExposure!]!
+  
+  # Time Series
+  cumulativeReturns: [TimeSeriesPoint!]!
+  rollingVolatility: [TimeSeriesPoint!]!
+  rollingSharpe: [TimeSeriesPoint!]!
+}
+
+type PerformanceAttribution {
+  memberId: ID!
+  period: Period!
+  
+  # Brinson Attribution
+  totalEffect: Float!
+  allocationEffect: Float!
+  selectionEffect: Float!
+  interactionEffect: Float!
+  
+  # Factor Attribution
+  factorContributions: [FactorContribution!]!
+  
+  # Security Attribution
+  securityContributions: [SecurityContribution!]!
+}
+
+type RiskAnalytics {
+  memberId: ID!
+  period: Period!
+  
+  # Risk Measures
+  var95: Float!
+  var99: Float!
+  cvar95: Float!
+  cvar99: Float!
+  expectedShortfall: Float!
+  
+  # Stress Testing
+  stressTestResults: [StressTestResult!]!
+  
+  # Correlation Analysis
+  correlationMatrix: [[Float!]!]!
+  
+  # Risk Decomposition
+  riskContributions: [RiskContribution!]!
+  
+  # Scenario Analysis
+  scenarioAnalysis: [ScenarioResult!]!
+}
+
+type MarketAnalytics {
+  symbol: String!
+  period: Period!
+  
+  # Technical Indicators
+  movingAverages: [MovingAverage!]!
+  rsi: Float!
+  macd: MACD!
+  bollingerBands: BollingerBands!
+  
+  # Volatility Analysis
+  historicalVolatility: Float!
+  impliedVolatility: Float!
+  volatilitySurface: [[Float!]!]!
+  
+  # Liquidity Analysis
+  bidAskSpread: Float!
+  volumeProfile: [VolumeProfile!]!
+  marketDepth: MarketDepth!
+  
+  # Sentiment Analysis
+  sentimentScore: Float!
+  newsSentiment: NewsSentiment!
+  socialSentiment: SocialSentiment!
+}
+
+type SectorAnalytics {
+  sector: String!
+  period: Period!
+  
+  # Sector Performance
+  sectorReturn: Float!
+  sectorVolatility: Float!
+  sectorSharpe: Float!
+  
+  # Sector Composition
+  topHoldings: [SectorHolding!]!
+  sectorWeight: Float!
+  
+  # Sector Rotation
+  sectorMomentum: Float!
+  sectorValuation: SectorValuation!
+}
+
+type CustomReport {
+  id: ID!
+  name: String!
+  description: String!
+  template: ReportTemplate!
+  data: JSON!
+  generatedAt: DateTime!
+  expiresAt: DateTime
+}
+
+type ReportTemplate {
+  id: ID!
+  name: String!
+  description: String!
+  category: ReportCategory!
+  parameters: [ReportParameter!]!
+  outputFormat: ReportFormat!
+}
+
+type BenchmarkComparison {
+  memberId: ID!
+  benchmark: String!
+  period: Period!
+  
+  # Performance Comparison
+  portfolioReturn: Float!
+  benchmarkReturn: Float!
+  excessReturn: Float!
+  trackingError: Float!
+  informationRatio: Float!
+  
+  # Risk Comparison
+  portfolioVolatility: Float!
+  benchmarkVolatility: Float!
+  portfolioBeta: Float!
+  
+  # Attribution
+  assetAllocationEffect: Float!
+  stockSelectionEffect: Float!
+  interactionEffect: Float!
+}
+
+# Supporting Types
+type AssetAllocation {
+  assetClass: String!
+  weight: Float!
+  return: Float!
+  contribution: Float!
+}
+
+type FactorExposure {
+  factor: String!
+  exposure: Float!
+  contribution: Float!
+}
+
+type SectorExposure {
+  sector: String!
+  weight: Float!
+  return: Float!
+  contribution: Float!
+}
+
+type TimeSeriesPoint {
+  date: DateTime!
+  value: Float!
+}
+
+type FactorContribution {
+  factor: String!
+  contribution: Float!
+  weight: Float!
+}
+
+type SecurityContribution {
+  symbol: String!
+  contribution: Float!
+  weight: Float!
+  return: Float!
+}
+
+type StressTestResult {
+  scenario: String!
+  portfolioValue: Float!
+  loss: Float!
+  probability: Float!
+}
+
+type RiskContribution {
+  asset: String!
+  contribution: Float!
+  percentage: Float!
+}
+
+type ScenarioResult {
+  scenario: String!
+  portfolioValue: Float!
+  return: Float!
+  probability: Float!
+}
+
+type MovingAverage {
+  period: Int!
+  value: Float!
+  date: DateTime!
+}
+
+type MACD {
+  macd: Float!
+  signal: Float!
+  histogram: Float!
+}
+
+type BollingerBands {
+  upper: Float!
+  middle: Float!
+  lower: Float!
+}
+
+type VolumeProfile {
+  price: Float!
+  volume: Float!
+}
+
+type MarketDepth {
+  bids: [DepthLevel!]!
+  asks: [DepthLevel!]!
+}
+
+type DepthLevel {
+  price: Float!
+  quantity: Float!
+}
+
+type NewsSentiment {
+  score: Float!
+  positiveCount: Int!
+  negativeCount: Int!
+  neutralCount: Int!
+}
+
+type SocialSentiment {
+  score: Float!
+  mentions: Int!
+  sentiment: SentimentType!
+}
+
+type SectorHolding {
+  symbol: String!
+  weight: Float!
+  return: Float!
+}
+
+type SectorValuation {
+  pe: Float!
+  pb: Float!
+  dividendYield: Float!
+}
+
+type ReportParameter {
+  name: String!
+  type: ParameterType!
+  required: Boolean!
+  defaultValue: String
+  options: [String!]
+}
+
+# Enums
+enum Period {
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+  YTD
+  MTD
+  WTD
+}
+
+enum ReportCategory {
+  PERFORMANCE
+  RISK
+  ATTRIBUTION
+  MARKET
+  CUSTOM
+}
+
+enum ReportFormat {
+  PDF
+  EXCEL
+  CSV
+  JSON
+  HTML
+}
+
+enum ParameterType {
+  STRING
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+enum SentimentType {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+# Update types
+type PortfolioAnalyticsUpdate {
+  analytics: PortfolioAnalytics!
+}
+
+type RiskAnalyticsUpdate {
+  analytics: RiskAnalytics!
+}
+
+type MarketAnalyticsUpdate {
+  analytics: MarketAnalytics!
+}
+
+scalar JSON
+scalar DateTime

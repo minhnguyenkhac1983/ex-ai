@@ -1,0 +1,370 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'localhost:5000'
+        KUBECONFIG = credentials('kubeconfig')
+        NODE_VERSION = '18'
+        GO_VERSION = '1.21'
+        HELM_VERSION = '3.12.0'
+    }
+    
+    tools {
+        nodejs 'NodeJS-18'
+        go 'Go-1.21'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Install Dependencies') {
+            parallel {
+                stage('Node.js Dependencies') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm ci --no-audit --no-fund'
+                        }
+                    }
+                }
+                stage('Go Dependencies') {
+                    steps {
+                        dir('services/wallet') {
+                            sh 'go mod download'
+                        }
+                        dir('services/compliance') {
+                            sh 'go mod download'
+                        }
+                        dir('services/risk') {
+                            sh 'go mod download'
+                        }
+                        dir('services/treasury') {
+                            sh 'go mod download'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Lint & Format') {
+            parallel {
+                stage('TypeScript Lint') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm run lint'
+                        }
+                    }
+                }
+                stage('Go Lint') {
+                    steps {
+                        dir('services/wallet') {
+                            sh 'golangci-lint run'
+                        }
+                        dir('services/compliance') {
+                            sh 'golangci-lint run'
+                        }
+                        dir('services/risk') {
+                            sh 'golangci-lint run'
+                        }
+                        dir('services/treasury') {
+                            sh 'golangci-lint run'
+                        }
+                    }
+                }
+                stage('Database Lint') {
+                    steps {
+                        sh 'atlas schema lint --dev-url "docker://postgres/15/dev?search_path=public" --dir "file://database/migrations"'
+                    }
+                }
+            }
+        }
+        
+        stage('Build') {
+            parallel {
+                stage('Build BFF Web') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('Build Go Services') {
+                    steps {
+                        dir('services/wallet') {
+                            sh 'go build -o wallet-service cmd/main.go'
+                        }
+                        dir('services/compliance') {
+                            sh 'go build -o compliance-service cmd/main.go'
+                        }
+                        dir('services/risk') {
+                            sh 'go build -o risk-service cmd/main.go'
+                        }
+                        dir('services/treasury') {
+                            sh 'go build -o treasury-service cmd/main.go'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Test') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm run test'
+                        }
+                        dir('services/wallet') {
+                            sh 'go test ./...'
+                        }
+                        dir('services/compliance') {
+                            sh 'go test ./...'
+                        }
+                        dir('services/risk') {
+                            sh 'go test ./...'
+                        }
+                        dir('services/treasury') {
+                            sh 'go test ./...'
+                        }
+                    }
+                }
+                stage('Contract Tests') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm run pact:verify:wallet'
+                        }
+                    }
+                }
+                stage('Load Tests') {
+                    steps {
+                        sh 'k6 run tests/load/wallet-k6.js'
+                    }
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            parallel {
+                stage('Generate SBOM') {
+                    steps {
+                        sh 'syft packages . -o json > sbom.json'
+                        archiveArtifacts artifacts: 'sbom.json', fingerprint: true
+                    }
+                }
+                stage('Dependency Scan') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'npm audit --audit-level moderate'
+                        }
+                        dir('services/wallet') {
+                            sh 'govulncheck ./...'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build BFF Web') {
+                    steps {
+                        dir('apps/bff-web') {
+                            sh 'docker build -t ${DOCKER_REGISTRY}/exc-bff-web:${BUILD_NUMBER} .'
+                            sh 'docker push ${DOCKER_REGISTRY}/exc-bff-web:${BUILD_NUMBER}'
+                        }
+                    }
+                }
+                stage('Build Wallet Service') {
+                    steps {
+                        dir('services/wallet') {
+                            sh 'docker build -t ${DOCKER_REGISTRY}/exc-wallet-service:${BUILD_NUMBER} .'
+                            sh 'docker push ${DOCKER_REGISTRY}/exc-wallet-service:${BUILD_NUMBER}'
+                        }
+                    }
+                }
+                stage('Build Compliance Service') {
+                    steps {
+                        dir('services/compliance') {
+                            sh 'docker build -t ${DOCKER_REGISTRY}/exc-compliance-service:${BUILD_NUMBER} .'
+                            sh 'docker push ${DOCKER_REGISTRY}/exc-compliance-service:${BUILD_NUMBER}'
+                        }
+                    }
+                }
+                stage('Build Risk Service') {
+                    steps {
+                        dir('services/risk') {
+                            sh 'docker build -t ${DOCKER_REGISTRY}/exc-risk-service:${BUILD_NUMBER} .'
+                            sh 'docker push ${DOCKER_REGISTRY}/exc-risk-service:${BUILD_NUMBER}'
+                        }
+                    }
+                }
+                stage('Build Treasury Service') {
+                    steps {
+                        dir('services/treasury') {
+                            sh 'docker build -t ${DOCKER_REGISTRY}/exc-treasury-service:${BUILD_NUMBER} .'
+                            sh 'docker push ${DOCKER_REGISTRY}/exc-treasury-service:${BUILD_NUMBER}'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Image Security Scan') {
+            parallel {
+                stage('Scan BFF Web') {
+                    steps {
+                        sh 'trivy image --severity HIGH,CRITICAL ${DOCKER_REGISTRY}/exc-bff-web:${BUILD_NUMBER}'
+                    }
+                }
+                stage('Scan Wallet Service') {
+                    steps {
+                        sh 'trivy image --severity HIGH,CRITICAL ${DOCKER_REGISTRY}/exc-wallet-service:${BUILD_NUMBER}'
+                    }
+                }
+                stage('Scan Compliance Service') {
+                    steps {
+                        sh 'trivy image --severity HIGH,CRITICAL ${DOCKER_REGISTRY}/exc-compliance-service:${BUILD_NUMBER}'
+                    }
+                }
+                stage('Scan Risk Service') {
+                    steps {
+                        sh 'trivy image --severity HIGH,CRITICAL ${DOCKER_REGISTRY}/exc-risk-service:${BUILD_NUMBER}'
+                    }
+                }
+                stage('Scan Treasury Service') {
+                    steps {
+                        sh 'trivy image --severity HIGH,CRITICAL ${DOCKER_REGISTRY}/exc-treasury-service:${BUILD_NUMBER}'
+                    }
+                }
+            }
+        }
+        
+        stage('Sign Images') {
+            steps {
+                sh 'cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-bff-web:${BUILD_NUMBER}'
+                sh 'cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-wallet-service:${BUILD_NUMBER}'
+                sh 'cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-compliance-service:${BUILD_NUMBER}'
+                sh 'cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-risk-service:${BUILD_NUMBER}'
+                sh 'cosign sign --key cosign.key ${DOCKER_REGISTRY}/exc-treasury-service:${BUILD_NUMBER}'
+            }
+        }
+        
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    // Update Helm values with new image tags
+                    sh '''
+                        sed -i 's/tag: "latest"/tag: "${BUILD_NUMBER}"/g' infrastructure/kubernetes/helm/exc/values.yaml
+                        helm upgrade --install exc-staging ./infrastructure/kubernetes/helm/exc \
+                            --namespace staging \
+                            --create-namespace \
+                            --set global.environment=staging
+                    '''
+                }
+            }
+        }
+        
+        stage('Integration Tests') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    // Wait for services to be ready
+                    sh 'kubectl wait --for=condition=ready pod -l app=exc-wallet-service -n staging --timeout=300s'
+                    
+                    // Run integration tests
+                    dir('tests/integration') {
+                        sh 'npm install'
+                        sh 'npm test'
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    // Update Helm values with new image tags
+                    sh '''
+                        sed -i 's/tag: "latest"/tag: "${BUILD_NUMBER}"/g' infrastructure/kubernetes/helm/exc/values.yaml
+                        helm upgrade --install exc ./infrastructure/kubernetes/helm/exc \
+                            --namespace production \
+                            --create-namespace \
+                            --set global.environment=production
+                    '''
+                }
+            }
+        }
+        
+        stage('Post-Deployment Tests') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    // Wait for services to be ready
+                    sh 'kubectl wait --for=condition=ready pod -l app=exc-wallet-service -n production --timeout=300s'
+                    
+                    // Health checks
+                    sh 'curl -f http://api-gateway/api/health'
+                    sh 'curl -f http://wallet-service:8080/health'
+                    sh 'curl -f http://compliance-service:8080/health'
+                    sh 'curl -f http://risk-service:8080/health'
+                    sh 'curl -f http://treasury-service:8080/health'
+                }
+            }
+        }
+        
+        stage('Notify') {
+            steps {
+                script {
+                    if (currentBuild.result == 'SUCCESS') {
+                        // Success notification
+                        echo 'Build successful! Deployment completed.'
+                    } else {
+                        // Failure notification
+                        echo 'Build failed! Please check the logs.'
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Cleanup
+            sh 'docker system prune -f'
+            
+            // Archive test results
+            publishTestResults testResultsPattern: '**/test-results.xml'
+            
+            // Publish coverage reports
+            publishCoverage adapters: [coberturaAdapter('**/coverage/cobertura-coverage.xml')]
+        }
+        
+        success {
+            // Tag successful builds
+            sh 'git tag -a v${BUILD_NUMBER} -m "Build ${BUILD_NUMBER} successful"'
+            sh 'git push origin v${BUILD_NUMBER}'
+        }
+        
+        failure {
+            // Rollback on failure
+            script {
+                if (env.BRANCH_NAME == 'main') {
+                    sh 'helm rollback exc -n production'
+                }
+            }
+        }
+    }
+}

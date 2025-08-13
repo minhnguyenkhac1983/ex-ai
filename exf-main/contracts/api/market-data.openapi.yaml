@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: Market Data API
+  version: 1.0.0
+  description: Read-only HTTP APIs for quotes and order book snapshots
+servers:
+  - url: https://md.example.com
+paths:
+  /instruments/{instrumentId}/quotes/bbo:
+    get:
+      summary: Get Best Bid/Offer (Level 1)
+      parameters:
+        - name: instrumentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+  /instruments/{instrumentId}/book:
+    get:
+      summary: Get order book snapshot
+      parameters:
+        - name: instrumentId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: depth
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderBook'
+
+components:
+  schemas:
+    Quote:
+      type: object
+      required: [instrumentId, bidPrice, bidQty, askPrice, askQty, ts]
+      properties:
+        instrumentId: { type: string }
+        bidPrice: { type: string }
+        bidQty: { type: string }
+        askPrice: { type: string }
+        askQty: { type: string }
+        ts: { type: string, format: date-time }
+    BookLevel:
+      type: object
+      required: [price, qty]
+      properties:
+        price: { type: string }
+        qty: { type: string }
+    OrderBook:
+      type: object
+      required: [instrumentId, bids, asks, ts]
+      properties:
+        instrumentId: { type: string }
+        bids:
+          type: array
+          items: { $ref: '#/components/schemas/BookLevel' }
+        asks:
+          type: array
+          items: { $ref: '#/components/schemas/BookLevel' }
+        ts: { type: string, format: date-time }
+
+

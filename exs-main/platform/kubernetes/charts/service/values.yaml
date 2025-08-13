@@ -1,0 +1,17 @@
+nameOverride: ""
+
+image:
+  repository: nginx
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+env: {}
+
+resources: {}
+
+replicaCount: 1
+

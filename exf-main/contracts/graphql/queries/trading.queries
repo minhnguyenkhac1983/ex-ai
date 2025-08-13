@@ -1,0 +1,297 @@
+# Common Trading Queries
+
+# Get user's orders with pagination
+query GetOrders($memberId: ID!, $status: OrderStatus, $pagination: PaginationInput) {
+  orders(memberId: $memberId, status: $status) {
+    id
+    symbol
+    side
+    quantity
+    price
+    orderType
+    status
+    timeInForce
+    createdAt
+    updatedAt
+    filledQuantity
+    averagePrice
+    executions {
+      id
+      quantity
+      price
+      timestamp
+      tradeId
+    }
+  }
+}
+
+# Get specific order details
+query GetOrder($orderId: ID!) {
+  order(id: $orderId) {
+    id
+    memberId
+    symbol
+    side
+    quantity
+    price
+    orderType
+    status
+    timeInForce
+    createdAt
+    updatedAt
+    filledQuantity
+    averagePrice
+    executions {
+      id
+      quantity
+      price
+      timestamp
+      tradeId
+    }
+  }
+}
+
+# Get portfolio overview
+query GetPortfolio($memberId: ID!) {
+  portfolio(memberId: $memberId) {
+    memberId
+    totalValue
+    cashBalance
+    marginBalance
+    pnl
+    unrealizedPnl
+    realizedPnl
+    positions {
+      symbol
+      quantity
+      averagePrice
+      marketValue
+      unrealizedPnl
+      marginRequirement
+    }
+  }
+}
+
+# Get positions
+query GetPositions($memberId: ID!) {
+  positions(memberId: $memberId) {
+    symbol
+    quantity
+    averagePrice
+    marketValue
+    unrealizedPnl
+    marginRequirement
+  }
+}
+
+# Get market data for a symbol
+query GetMarketData($symbol: String!) {
+  marketData(symbol: $symbol) {
+    symbol
+    lastPrice
+    bid
+    ask
+    volume
+    high
+    low
+    open
+    change
+    changePercent
+    timestamp
+  }
+}
+
+# Get order book
+query GetOrderBook($symbol: String!) {
+  orderBook(symbol: $symbol) {
+    symbol
+    bids {
+      price
+      quantity
+      orders
+    }
+    asks {
+      price
+      quantity
+      orders
+    }
+    timestamp
+  }
+}
+
+# Get recent trades
+query GetTrades($symbol: String!, $limit: Int) {
+  trades(symbol: $symbol, limit: $limit) {
+    id
+    symbol
+    quantity
+    price
+    timestamp
+    side
+  }
+}
+
+# Get risk metrics
+query GetRiskMetrics($memberId: ID!) {
+  riskMetrics(memberId: $memberId) {
+    memberId
+    var95
+    var99
+    maxDrawdown
+    sharpeRatio
+    beta
+    correlation
+  }
+}
+
+# Get margin requirements
+query GetMarginRequirements($memberId: ID!) {
+  marginRequirements(memberId: $memberId) {
+    memberId
+    initialMargin
+    maintenanceMargin
+    availableMargin
+    marginUtilization
+  }
+}
+
+# Real-time subscriptions
+subscription OrderUpdates($memberId: ID!) {
+  orderUpdates(memberId: $memberId) {
+    order {
+      id
+      symbol
+      side
+      quantity
+      price
+      orderType
+      status
+      timeInForce
+      createdAt
+      updatedAt
+      filledQuantity
+      averagePrice
+    }
+    updateType
+  }
+}
+
+subscription MarketDataUpdates($symbol: String!) {
+  marketDataUpdates(symbol: $symbol) {
+    marketData {
+      symbol
+      lastPrice
+      bid
+      ask
+      volume
+      high
+      low
+      open
+      change
+      changePercent
+      timestamp
+    }
+  }
+}
+
+subscription PortfolioUpdates($memberId: ID!) {
+  portfolioUpdates(memberId: $memberId) {
+    portfolio {
+      memberId
+      totalValue
+      cashBalance
+      marginBalance
+      pnl
+      unrealizedPnl
+      realizedPnl
+      positions {
+        symbol
+        quantity
+        averagePrice
+        marketValue
+        unrealizedPnl
+        marginRequirement
+      }
+    }
+  }
+}
+
+subscription RiskAlerts($memberId: ID!) {
+  riskAlerts(memberId: $memberId) {
+    memberId
+    alertType
+    message
+    severity
+    timestamp
+  }
+}
+
+# Mutations
+mutation CreateOrder($input: CreateOrderInput!) {
+  createOrder(input: $input) {
+    id
+    symbol
+    side
+    quantity
+    price
+    orderType
+    status
+    timeInForce
+    createdAt
+  }
+}
+
+mutation CancelOrder($input: CancelOrderInput!) {
+  cancelOrder(input: $input) {
+    id
+    status
+    updatedAt
+  }
+}
+
+# Fragments for reusable parts
+fragment OrderFields on Order {
+  id
+  symbol
+  side
+  quantity
+  price
+  orderType
+  status
+  timeInForce
+  createdAt
+  updatedAt
+  filledQuantity
+  averagePrice
+}
+
+fragment ExecutionFields on Execution {
+  id
+  quantity
+  price
+  timestamp
+  tradeId
+}
+
+fragment PositionFields on Position {
+  symbol
+  quantity
+  averagePrice
+  marketValue
+  unrealizedPnl
+  marginRequirement
+}
+
+fragment MarketDataFields on MarketData {
+  symbol
+  lastPrice
+  bid
+  ask
+  volume
+  high
+  low
+  open
+  change
+  changePercent
+  timestamp
+}

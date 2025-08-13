@@ -1,0 +1,450 @@
+# Common Analytics Queries
+
+# Portfolio Analytics
+query GetPortfolioAnalytics($memberId: ID!, $period: Period!) {
+  portfolioAnalytics(memberId: $memberId, period: $period) {
+    memberId
+    period
+    
+    # Performance Metrics
+    totalReturn
+    annualizedReturn
+    volatility
+    sharpeRatio
+    sortinoRatio
+    maxDrawdown
+    calmarRatio
+    
+    # Risk Metrics
+    var95
+    var99
+    cvar95
+    cvar99
+    beta
+    alpha
+    informationRatio
+    trackingError
+    
+    # Attribution
+    assetAllocation {
+      assetClass
+      weight
+      return
+      contribution
+    }
+    factorExposure {
+      factor
+      exposure
+      contribution
+    }
+    sectorExposure {
+      sector
+      weight
+      return
+      contribution
+    }
+    
+    # Time Series
+    cumulativeReturns {
+      date
+      value
+    }
+    rollingVolatility {
+      date
+      value
+    }
+    rollingSharpe {
+      date
+      value
+    }
+  }
+}
+
+# Performance Attribution
+query GetPerformanceAttribution($memberId: ID!, $period: Period!) {
+  performanceAttribution(memberId: $memberId, period: $period) {
+    memberId
+    period
+    
+    # Brinson Attribution
+    totalEffect
+    allocationEffect
+    selectionEffect
+    interactionEffect
+    
+    # Factor Attribution
+    factorContributions {
+      factor
+      contribution
+      weight
+    }
+    
+    # Security Attribution
+    securityContributions {
+      symbol
+      contribution
+      weight
+      return
+    }
+  }
+}
+
+# Risk Analytics
+query GetRiskAnalytics($memberId: ID!, $period: Period!) {
+  riskAnalytics(memberId: $memberId, period: $period) {
+    memberId
+    period
+    
+    # Risk Measures
+    var95
+    var99
+    cvar95
+    cvar99
+    expectedShortfall
+    
+    # Stress Testing
+    stressTestResults {
+      scenario
+      portfolioValue
+      loss
+      probability
+    }
+    
+    # Correlation Analysis
+    correlationMatrix
+    
+    # Risk Decomposition
+    riskContributions {
+      asset
+      contribution
+      percentage
+    }
+    
+    # Scenario Analysis
+    scenarioAnalysis {
+      scenario
+      portfolioValue
+      return
+      probability
+    }
+  }
+}
+
+# Market Analytics
+query GetMarketAnalytics($symbol: String!, $period: Period!) {
+  marketAnalytics(symbol: $symbol, period: $period) {
+    symbol
+    period
+    
+    # Technical Indicators
+    movingAverages {
+      period
+      value
+      date
+    }
+    rsi
+    macd {
+      macd
+      signal
+      histogram
+    }
+    bollingerBands {
+      upper
+      middle
+      lower
+    }
+    
+    # Volatility Analysis
+    historicalVolatility
+    impliedVolatility
+    volatilitySurface
+    
+    # Liquidity Analysis
+    bidAskSpread
+    volumeProfile {
+      price
+      volume
+    }
+    marketDepth {
+      bids {
+        price
+        quantity
+      }
+      asks {
+        price
+        quantity
+      }
+    }
+    
+    # Sentiment Analysis
+    sentimentScore
+    newsSentiment {
+      score
+      positiveCount
+      negativeCount
+      neutralCount
+    }
+    socialSentiment {
+      score
+      mentions
+      sentiment
+    }
+  }
+}
+
+# Sector Analytics
+query GetSectorAnalytics($sector: String!, $period: Period!) {
+  sectorAnalytics(sector: $sector, period: $period) {
+    sector
+    period
+    
+    # Sector Performance
+    sectorReturn
+    sectorVolatility
+    sectorSharpe
+    
+    # Sector Composition
+    topHoldings {
+      symbol
+      weight
+      return
+    }
+    sectorWeight
+    
+    # Sector Rotation
+    sectorMomentum
+    sectorValuation {
+      pe
+      pb
+      dividendYield
+    }
+  }
+}
+
+# Custom Reports
+query GetCustomReport($reportId: ID!) {
+  customReport(reportId: $reportId) {
+    id
+    name
+    description
+    template {
+      id
+      name
+      description
+      category
+      parameters {
+        name
+        type
+        required
+        defaultValue
+        options
+      }
+      outputFormat
+    }
+    data
+    generatedAt
+    expiresAt
+  }
+}
+
+query GetAvailableReports {
+  availableReports {
+    id
+    name
+    description
+    category
+    parameters {
+      name
+      type
+      required
+      defaultValue
+      options
+    }
+    outputFormat
+  }
+}
+
+# Benchmark Comparison
+query GetBenchmarkComparison($memberId: ID!, $benchmark: String!, $period: Period!) {
+  benchmarkComparison(memberId: $memberId, benchmark: $benchmark, period: $period) {
+    memberId
+    benchmark
+    period
+    
+    # Performance Comparison
+    portfolioReturn
+    benchmarkReturn
+    excessReturn
+    trackingError
+    informationRatio
+    
+    # Risk Comparison
+    portfolioVolatility
+    benchmarkVolatility
+    portfolioBeta
+    
+    # Attribution
+    assetAllocationEffect
+    stockSelectionEffect
+    interactionEffect
+  }
+}
+
+# Real-time Analytics Subscriptions
+subscription PortfolioAnalyticsUpdates($memberId: ID!) {
+  portfolioAnalyticsUpdates(memberId: $memberId) {
+    analytics {
+      memberId
+      period
+      totalReturn
+      volatility
+      sharpeRatio
+      var95
+      var99
+      assetAllocation {
+        assetClass
+        weight
+        return
+        contribution
+      }
+    }
+  }
+}
+
+subscription RiskAnalyticsUpdates($memberId: ID!) {
+  riskAnalyticsUpdates(memberId: $memberId) {
+    analytics {
+      memberId
+      period
+      var95
+      var99
+      cvar95
+      cvar99
+      expectedShortfall
+      stressTestResults {
+        scenario
+        portfolioValue
+        loss
+        probability
+      }
+    }
+  }
+}
+
+subscription MarketAnalyticsUpdates($symbol: String!) {
+  marketAnalyticsUpdates(symbol: $symbol) {
+    analytics {
+      symbol
+      period
+      rsi
+      sentimentScore
+      historicalVolatility
+      bidAskSpread
+      macd {
+        macd
+        signal
+        histogram
+      }
+    }
+  }
+}
+
+# Fragments for reusable parts
+fragment PortfolioAnalyticsFields on PortfolioAnalytics {
+  memberId
+  period
+  totalReturn
+  annualizedReturn
+  volatility
+  sharpeRatio
+  sortinoRatio
+  maxDrawdown
+  calmarRatio
+  var95
+  var99
+  cvar95
+  cvar99
+  beta
+  alpha
+  informationRatio
+  trackingError
+}
+
+fragment AssetAllocationFields on AssetAllocation {
+  assetClass
+  weight
+  return
+  contribution
+}
+
+fragment FactorExposureFields on FactorExposure {
+  factor
+  exposure
+  contribution
+}
+
+fragment SectorExposureFields on SectorExposure {
+  sector
+  weight
+  return
+  contribution
+}
+
+fragment TimeSeriesPointFields on TimeSeriesPoint {
+  date
+  value
+}
+
+fragment PerformanceAttributionFields on PerformanceAttribution {
+  memberId
+  period
+  totalEffect
+  allocationEffect
+  selectionEffect
+  interactionEffect
+}
+
+fragment RiskAnalyticsFields on RiskAnalytics {
+  memberId
+  period
+  var95
+  var99
+  cvar95
+  cvar99
+  expectedShortfall
+}
+
+fragment MarketAnalyticsFields on MarketAnalytics {
+  symbol
+  period
+  rsi
+  historicalVolatility
+  impliedVolatility
+  bidAskSpread
+  sentimentScore
+}
+
+fragment MACDFields on MACD {
+  macd
+  signal
+  histogram
+}
+
+fragment BollingerBandsFields on BollingerBands {
+  upper
+  middle
+  lower
+}
+
+fragment NewsSentimentFields on NewsSentiment {
+  score
+  positiveCount
+  negativeCount
+  neutralCount
+}
+
+fragment SocialSentimentFields on SocialSentiment {
+  score
+  mentions
+  sentiment
+}

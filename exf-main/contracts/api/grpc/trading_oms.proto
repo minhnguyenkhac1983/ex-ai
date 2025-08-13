@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package exf.trading.v1;
+
+option go_package = "exf/trading/v1;tradingv1";
+
+service TradingOMS {
+  rpc CreateOrder (OrderCreateRequest) returns (OrderResponse);
+  rpc GetOrder (GetOrderRequest) returns (OrderResponse);
+  rpc AmendOrder (OrderAmendRequest) returns (OperationAccepted);
+  rpc CancelOrder (CancelOrderRequest) returns (OperationAccepted);
+}
+
+message OrderCreateRequest {
+  string client_order_id = 1;
+  string instrument_id = 2;
+  string member_id = 3;
+  enum Side { SIDE_UNSPECIFIED = 0; BUY = 1; SELL = 2; }
+  Side side = 4;
+  enum Type { TYPE_UNSPECIFIED = 0; MARKET = 1; LIMIT = 2; STOP = 3; STOP_LIMIT = 4; ICEBERG = 5; }
+  Type type = 5;
+  string quantity = 6; // decimal as string
+  string price = 7;    // optional for LIMIT/STOP
+  enum TimeInForce { TIF_UNSPECIFIED = 0; DAY = 1; GTC = 2; IOC = 3; FOK = 4; GTT = 5; }
+  TimeInForce tif = 8;
+  string expire_at = 9; // RFC3339
+  string iceberg_displayed_qty = 10;
+  string idempotency_key = 11;
+  map<string, string> metadata = 12;
+}
+
+message GetOrderRequest { string order_id = 1; }
+
+message OrderAmendRequest {
+  string order_id = 1;
+  string quantity = 2;
+  string price = 3;
+  enum TimeInForce { TIF_UNSPECIFIED = 0; DAY = 1; GTC = 2; IOC = 3; FOK = 4; GTT = 5; }
+  TimeInForce tif = 4;
+}
+
+message CancelOrderRequest { string order_id = 1; }
+
+message ExecutionFill {
+  string trade_id = 1;
+  string price = 2;
+  string quantity = 3;
+  string occurred_at = 4; // RFC3339
+}
+
+message OrderResponse {
+  string order_id = 1;
+  string client_order_id = 2;
+  string instrument_id = 3;
+  string member_id = 4;
+  OrderCreateRequest.Side side = 5;
+  OrderCreateRequest.Type type = 6;
+  string quantity = 7;
+  string price = 8;
+  OrderCreateRequest.TimeInForce tif = 9;
+  enum Status { STATUS_UNSPECIFIED = 0; NEW = 1; PARTIALLY_FILLED = 2; FILLED = 3; CANCELLED = 4; REJECTED = 5; PENDING_AMEND = 6; PENDING_CANCEL = 7; }
+  Status status = 10;
+  repeated ExecutionFill fills = 11;
+  string created_at = 12; // RFC3339
+  string updated_at = 13; // RFC3339
+}
+
+message OperationAccepted { string request_id = 1; }
+
+

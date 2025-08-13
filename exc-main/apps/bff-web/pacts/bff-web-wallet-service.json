@@ -1,0 +1,83 @@
+{
+  "consumer": {
+    "name": "bff-web"
+  },
+  "interactions": [
+    {
+      "description": "a valid deposit request",
+      "providerStates": [
+        {
+          "name": "deposit accepted"
+        }
+      ],
+      "request": {
+        "body": {
+          "amount": 10,
+          "asset": "USDT",
+          "userId": "user_1"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/deposit"
+      },
+      "response": {
+        "body": {
+          "requestId": "req_1",
+          "status": "accepted"
+        },
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a valid withdraw request",
+      "providerStates": [
+        {
+          "name": "withdraw accepted"
+        }
+      ],
+      "request": {
+        "body": {
+          "address": "bc1qabc",
+          "amount": 0.01,
+          "asset": "BTC",
+          "userId": "user_1"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/withdraw"
+      },
+      "response": {
+        "body": {
+          "requestId": "req_w1",
+          "status": "accepted"
+        },
+        "headers": {
+          "content-type": "application/json; charset=utf-8"
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "12.3.0"
+    },
+    "pactRust": {
+      "ffi": "0.4.20",
+      "models": "1.2.0"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "wallet-service"
+  }
+}

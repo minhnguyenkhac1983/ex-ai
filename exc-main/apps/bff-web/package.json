@@ -1,0 +1,35 @@
+{
+  "name": "bff-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --ext .ts,.tsx",
+    "gen:openapi": "node -e \"require('fs').mkdirSync('src/contracts', { recursive: true })\" && openapi-typescript ../../deployment/contracts/openapi/wallet.yaml -o src/contracts/wallet.d.ts",
+    "test": "vitest run",
+    "pact:verify:wallet": "node scripts/verify-wallet-provider.js",
+    "pact:publish": "echo Skipping publish; configure Pact Broker URL to enable"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "1.8.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.52.1",
+    "@opentelemetry/sdk-trace-web": "1.22.0",
+    "jsonwebtoken": "9.0.2",
+    "next": "14.2.5",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/react": "19.1.9",
+    "@typescript-eslint/eslint-plugin": "7.6.0",
+    "@typescript-eslint/parser": "7.6.0",
+    "eslint": "8.57.0",
+    "openapi-typescript": "6.7.5",
+    "typescript": "5.4.5",
+    "vitest": "1.6.0",
+    "@pact-foundation/pact": "12.3.0"
+  }
+}

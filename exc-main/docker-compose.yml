@@ -1,0 +1,291 @@
+services:
+  # Databases
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: exchange_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=10", "-c", "max_wal_senders=10"]
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema_v2.sql:/docker-entrypoint-initdb.d/001_schema_v2.sql:ro
+    networks:
+      - exchange-network
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - exchange-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - exchange-network
+
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:7.9.2
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    networks:
+      - exchange-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - exchange-network
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./deployment/monitoring/alerts:/etc/prometheus/rules
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - exchange-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "43000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./deployment/monitoring/grafana/dashboards/json:/etc/grafana/provisioning/dashboards/json
+      - ./deployment/monitoring/grafana/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./deployment/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - exchange-network
+
+  # Logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - exchange-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.1.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - exchange-network
+
+  # Services (Development)
+  trading-engine:
+    build:
+      context: ./services/trading-engine
+      dockerfile: Dockerfile
+    container_name: trading-engine
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/exchange_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    networks:
+      - exchange-network
+    volumes:
+      - ./services/trading-engine/configs:/app/configs
+
+  user-service:
+    build:
+      context: ./services/user
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/exchange_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exchange-network
+
+  wallet-service:
+    build:
+      context: ./services/wallet
+      dockerfile: Dockerfile
+    container_name: wallet-service
+    ports:
+      - "8082:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/exchange_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - exchange-network
+
+  market-data-service:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: market-data-service
+    ports:
+      - "8083:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/exchange_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+    networks:
+      - exchange-network
+
+  identity-service:
+    build:
+      context: ./services/identity
+      dockerfile: Dockerfile
+    container_name: identity-service
+    ports:
+      - "4000:4000"
+    networks:
+      - exchange-network
+
+  notification-service:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "8090:8090"
+    environment:
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/notification?authSource=admin
+    depends_on:
+      - mongodb
+    networks:
+      - exchange-network
+
+  compliance-service:
+    build:
+      context: ./services/compliance
+      dockerfile: Dockerfile
+    container_name: compliance-service
+    ports:
+      - "8087:8080"
+    networks:
+      - exchange-network
+
+  risk-service:
+    build:
+      context: ./services/risk
+      dockerfile: Dockerfile
+    container_name: risk-service
+    ports:
+      - "8085:8080"
+    networks:
+      - exchange-network
+
+  treasury-service:
+    build:
+      context: ./services/treasury
+      dockerfile: Dockerfile
+    container_name: treasury-service
+    ports:
+      - "8086:8080"
+    networks:
+      - exchange-network
+
+  # API Gateway
+  nginx:
+    image: nginx:latest
+    container_name: api-gateway
+    ports:
+      - "8088:80"
+      - "8443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - trading-engine
+      - user-service
+      - wallet-service
+      - market-data-service
+    networks:
+      - exchange-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  exchange-network:
+    driver: bridge
