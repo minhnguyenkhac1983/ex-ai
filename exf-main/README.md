@@ -1,4 +1,4 @@
-# exf
+# exf - Exchange of Financial
 
 [![CI](https://github.com/minhnguyenkhac1983/exf/actions/workflows/ci.yml/badge.svg)](https://github.com/minhnguyenkhac1983/exf/actions/workflows/ci.yml)
 
