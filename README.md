@@ -12,7 +12,7 @@ This repository focuses on **AI research and automation** across various financi
 
 - 🔍 **Research**: Cursor (Claude, GPT-5, ...)
 - ⚡ **Automation**: Streamlined processes and workflows
-- 🏦 **Domains**: Crypto, Securities, Banking, Insurance, Finance
+- 🏦 **Domains**: Crypto, Securities, Banking, Insurance, Finance, Lending
 
 ## 🚀 Current Status
 
@@ -41,6 +41,7 @@ This repository focuses on **AI research and automation** across various financi
 | 📈 **Securities** | [exs](https://github.com/minhnguyenkhac1983/exs.git) | Securities trading and management |
 | 💰 **Finance** | [exf](https://github.com/minhnguyenkhac1983/exf.git) | General financial applications |
 | 🛡️ **Insurance** | [exi](https://github.com/minhnguyenkhac1983/exi.git) | Insurance industry solutions |
+| 💳 **Lending** | [exl](https://github.com/minhnguyenkhac1983/exl.git) | Lending and credit management solutions |
 
 ## 🛠️ Technologies & Tools
 
