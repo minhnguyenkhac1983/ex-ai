@@ -1,0 +1,507 @@
+version: '3.8'
+
+services:
+  # Database Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: ewallet-postgres
+    environment:
+      POSTGRES_DB: ewallet
+      POSTGRES_USER: ewallet
+      POSTGRES_PASSWORD: ewallet
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - ewallet-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ewallet -d ewallet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ewallet-redis
+    command: redis-server --appendonly yes --requirepass redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ewallet-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Message Queue
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: ewallet-kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - ewallet-network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: ewallet-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - ewallet-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./apps/api-gateway
+      dockerfile: Dockerfile
+    container_name: ewallet-api-gateway
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./apps/api-gateway:/app
+      - /app/node_modules
+
+  # Authentication Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: ewallet-auth-service
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      JWT_SECRET: your-super-secret-jwt-key
+      JWT_EXPIRES_IN: 24h
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/auth-service:/app
+      - /app/node_modules
+
+  # User Service
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: ewallet-user-service
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+
+  # Wallet Service
+  wallet-service:
+    build:
+      context: ./services/wallet-service
+      dockerfile: Dockerfile
+    container_name: ewallet-wallet-service
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/wallet-service:/app
+      - /app/node_modules
+
+  # Transaction Service
+  transaction-service:
+    build:
+      context: ./services/transaction-service
+      dockerfile: Dockerfile
+    container_name: ewallet-transaction-service
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/transaction-service:/app
+      - /app/node_modules
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    container_name: ewallet-payment-service
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3005:3005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/payment-service:/app
+      - /app/node_modules
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: ewallet-notification-service
+    environment:
+      NODE_ENV: development
+      PORT: 3006
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3006:3006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+
+  # Fraud Detection Service
+  fraud-detection-service:
+    build:
+      context: ./services/fraud-detection-service
+      dockerfile: Dockerfile
+    container_name: ewallet-fraud-detection-service
+    environment:
+      NODE_ENV: development
+      PORT: 3007
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/fraud-detection-service:/app
+      - /app/node_modules
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: ewallet-analytics-service
+    environment:
+      NODE_ENV: development
+      PORT: 3008
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/analytics-service:/app
+      - /app/node_modules
+
+  # AI/ML Service
+  ai-ml-service:
+    build:
+      context: ./services/ai-ml-service
+      dockerfile: Dockerfile
+    container_name: ewallet-ai-ml-service
+    environment:
+      NODE_ENV: development
+      PORT: 3009
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "3009:3009"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/ai-ml-service:/app
+      - /app/node_modules
+
+  # Blockchain Service
+  blockchain-service:
+    build:
+      context: ./services/blockchain-service
+      dockerfile: Dockerfile
+    container_name: ewallet-blockchain-service
+    environment:
+      NODE_ENV: development
+      PORT: 3010
+      DATABASE_URL: postgresql://ewallet:ewallet@postgres:5432/ewallet
+      REDIS_URL: redis://:redis@redis:6379
+      KAFKA_BROKERS: kafka:9092
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL}
+      BITCOIN_NETWORK: ${BITCOIN_NETWORK}
+    ports:
+      - "3010:3010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - ewallet-network
+    volumes:
+      - ./services/blockchain-service:/app
+      - /app/node_modules
+
+  # Web Applications
+  customer-portal:
+    build:
+      context: ./apps/web/customer-portal
+      dockerfile: Dockerfile
+    container_name: ewallet-customer-portal
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      - api-gateway
+    networks:
+      - ewallet-network
+    volumes:
+      - ./apps/web/customer-portal:/app
+      - /app/node_modules
+      - /app/.next
+
+  merchant-portal:
+    build:
+      context: ./apps/web/merchant-portal
+      dockerfile: Dockerfile
+    container_name: ewallet-merchant-portal
+    environment:
+      NODE_ENV: development
+      PORT: 4001
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "4001:4001"
+    depends_on:
+      - api-gateway
+    networks:
+      - ewallet-network
+    volumes:
+      - ./apps/web/merchant-portal:/app
+      - /app/node_modules
+      - /app/.next
+
+  admin-dashboard:
+    build:
+      context: ./apps/web/admin-dashboard
+      dockerfile: Dockerfile
+    container_name: ewallet-admin-dashboard
+    environment:
+      NODE_ENV: development
+      PORT: 4002
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+    ports:
+      - "4002:4002"
+    depends_on:
+      - api-gateway
+    networks:
+      - ewallet-network
+    volumes:
+      - ./apps/web/admin-dashboard:/app
+      - /app/node_modules
+      - /app/.next
+
+  # Monitoring Services
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ewallet-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - ewallet-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ewallet-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - ewallet-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ewallet-jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - ewallet-network
+
+  # Development Tools
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ewallet-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ewallet.vn
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - ewallet-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ewallet-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - ewallet-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  ewallet-network:
+    driver: bridge
