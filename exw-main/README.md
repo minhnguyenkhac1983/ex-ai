@@ -147,7 +147,10 @@ vietnam-ewallet-exchange/
 │   ├── 📁 fraud-detection-service/   # Phát hiện gian lận
 │   ├── 📁 analytics-service/         # Phân tích dữ liệu
 │   ├── 📁 ai-ml-service/             # AI/ML services
-│   └── 📁 blockchain-service/        # Blockchain integration
+│   ├── 📁 blockchain-service/        # Blockchain integration
+│   ├── 📁 crypto-service/            # Cryptocurrency management
+│   ├── 📁 kyc-service/               # KYC verification
+│   └── 📁 merchant-service/          # Merchant management
 ├── 📁 shared/                        # Thư viện dùng chung
 │   ├── 📁 cache/                     # Caching utilities
 │   ├── 📁 security/                  # Security utilities
@@ -213,6 +216,9 @@ npm run dev:fraud     # Port 3007
 npm run dev:analytics # Port 3008
 npm run dev:ai        # Port 3009
 npm run dev:blockchain # Port 3010
+npm run dev:crypto    # Port 3011
+npm run dev:kyc       # Port 3012
+npm run dev:merchant  # Port 3013
 ```
 
 ### Chạy Frontend Applications
@@ -265,6 +271,9 @@ nano .env
 - **Analytics Service**: http://localhost:3008/api-docs
 - **AI/ML Service**: http://localhost:3009/api-docs
 - **Blockchain Service**: http://localhost:3010/api-docs
+- **Crypto Service**: http://localhost:3011/api-docs
+- **KYC Service**: http://localhost:3012/api-docs
+- **Merchant Service**: http://localhost:3013/api-docs
 
 ### Production APIs
 - **Staging**: https://staging-api.ewallet.vn/api-docs

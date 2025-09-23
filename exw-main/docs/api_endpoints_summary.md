@@ -345,4 +345,48 @@ curl http://localhost:3002/api/v1/users/profile \
 
 ---
 
-**Tổng kết**: Hệ thống cung cấp hơn 100 API endpoints được tổ chức thành 10 microservices, mỗi service có chức năng chuyên biệt và API documentation đầy đủ.
+### 11. Crypto Service (Port 3011) ⭐ NEW
+- **Base URL**: `http://localhost:3011/api/v1/crypto`
+- **Endpoints**:
+  - `POST /wallets` - Create crypto wallet
+  - `GET /wallets/:id` - Get wallet info
+  - `POST /transactions/send` - Send crypto transaction
+  - `GET /transactions/:id` - Get transaction status
+  - `GET /prices/:symbol` - Get crypto price
+  - `GET /portfolio/:userId` - Get user portfolio
+  - `POST /orders` - Create trading order
+  - `GET /orders/:id` - Get order status
+  - `GET /exchanges` - Get supported exchanges
+  - `GET /markets` - Get market data
+
+### 12. KYC Service (Port 3012) ⭐ NEW
+- **Base URL**: `http://localhost:3012/api/v1/kyc`
+- **Endpoints**:
+  - `POST /applications` - Create KYC application
+  - `GET /applications/:id` - Get application status
+  - `POST /documents/upload` - Upload KYC document
+  - `GET /documents/:id` - Get document info
+  - `POST /verification/:id` - Verify document
+  - `GET /status/:userId` - Get KYC status
+  - `POST /review/:id` - Review application
+  - `GET /risk-assessment/:id` - Get risk assessment
+  - `GET /compliance/report` - Get compliance report
+
+### 13. Merchant Service (Port 3013) ⭐ NEW
+- **Base URL**: `http://localhost:3013/api/v1/merchant`
+- **Endpoints**:
+  - `POST /applications` - Create merchant application
+  - `GET /applications/:id` - Get application status
+  - `POST /approve/:id` - Approve merchant
+  - `POST /payments` - Create payment request
+  - `GET /payments/:id` - Get payment status
+  - `POST /payments/:id/status` - Update payment status
+  - `GET /settlements` - Get settlements
+  - `POST /settlements/process` - Process settlement
+  - `GET /analytics` - Get merchant analytics
+  - `GET /dashboard` - Get dashboard data
+  - `POST /webhooks` - Configure webhooks
+
+---
+
+**Tổng kết**: Hệ thống cung cấp hơn 150 API endpoints được tổ chức thành 13 microservices, mỗi service có chức năng chuyên biệt và API documentation đầy đủ.
