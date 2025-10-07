@@ -2,415 +2,276 @@ version: '3.8'
 
 services:
   # Database Services
-  postgres:
-    image: postgres:15-alpine
-    container_name: exi-postgres
+  postgres-main:
+    image: postgres:15
     environment:
       POSTGRES_DB: exi_main
       POSTGRES_USER: exi_user
       POSTGRES_PASSWORD: exi_password
+    volumes:
+      - postgres_main_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - exi-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U exi_user -d exi_main"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
+  postgres-ifrs9:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: exi_ifrs9
+      POSTGRES_USER: exi_user
+      POSTGRES_PASSWORD: exi_password
+    volumes:
+      - postgres_ifrs9_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - exi-network
+
+  postgres-ifrs15:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: exi_ifrs15
+      POSTGRES_USER: exi_user
+      POSTGRES_PASSWORD: exi_password
+    volumes:
+      - postgres_ifrs15_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - exi-network
+
+  postgres-ifrs17:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: exi_ifrs17
+      POSTGRES_USER: exi_user
+      POSTGRES_PASSWORD: exi_password
+    volumes:
+      - postgres_ifrs17_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    networks:
+      - exi-network
+
+  postgres-solvency2:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: exi_solvency2
+      POSTGRES_USER: exi_user
+      POSTGRES_PASSWORD: exi_password
+    volumes:
+      - postgres_solvency2_data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    networks:
+      - exi-network
+
+  # Redis for Caching
   redis:
     image: redis:7-alpine
-    container_name: exi-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - exi-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  # Backend Services
+  # API Gateway
   api-gateway:
     build:
       context: ./backend/api-gateway
       dockerfile: Dockerfile
-    container_name: exi-api-gateway
-    environment:
-      NODE_ENV: development
-      PORT: 3000
-      USER_SERVICE_URL: http://user-service:3001
-      POLICY_SERVICE_URL: http://policy-service:3002
-      QUOTE_SERVICE_URL: http://quote-engine:3003
-      PAYMENT_SERVICE_URL: http://payment-service:3004
-      CLAIMS_SERVICE_URL: http://claims-service:3005
-      NOTIFICATION_SERVICE_URL: http://notification-service:3006
-      DOCUMENT_SERVICE_URL: http://document-service:3007
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
     ports:
       - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - IFRS9_SERVICE_URL=http://ifrs9-service:3001
+      - IFRS15_SERVICE_URL=http://ifrs15-service:3002
+      - IFRS17_SERVICE_URL=http://ifrs17-service:3003
+      - SOLVENCY2_SERVICE_URL=http://solvency2-service:3004
     depends_on:
-      - user-service
-      - policy-service
-      - quote-engine
-      - payment-service
-      - claims-service
-      - notification-service
-      - document-service
+      - redis
+      - ifrs9-service
+      - ifrs15-service
+      - ifrs17-service
+      - solvency2-service
     networks:
       - exi-network
-    volumes:
-      - ./backend/api-gateway:/app
-      - /app/node_modules
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
-  user-service:
+  # IFRS 9 Service
+  ifrs9-service:
     build:
-      context: ./backend/user-service
+      context: ./backend/ifrs9-service
       dockerfile: Dockerfile
-    container_name: exi-user-service
-    environment:
-      NODE_ENV: development
-      PORT: 3001
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SMTP_USER: your-email@gmail.com
-      SMTP_PASS: your-app-password
     ports:
       - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://exi_user:exi_password@postgres-ifrs9:5432/exi_ifrs9
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres-ifrs9
+      - redis
     networks:
       - exi-network
-    volumes:
-      - ./backend/user-service:/app
-      - /app/node_modules
 
-  policy-service:
+  # IFRS 15 Service
+  ifrs15-service:
     build:
-      context: ./backend/policy-service
+      context: ./backend/ifrs15-service
       dockerfile: Dockerfile
-    container_name: exi-policy-service
-    environment:
-      NODE_ENV: development
-      PORT: 3002
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      REDIS_URL: redis://redis:6379
     ports:
       - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=postgresql://exi_user:exi_password@postgres-ifrs15:5432/exi_ifrs15
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres-ifrs15
+      - redis
     networks:
       - exi-network
-    volumes:
-      - ./backend/policy-service:/app
-      - /app/node_modules
 
-  quote-engine:
+  # IFRS 17 Service
+  ifrs17-service:
     build:
-      context: ./backend/quote-engine
+      context: ./backend/ifrs17-service
       dockerfile: Dockerfile
-    container_name: exi-quote-engine
-    environment:
-      NODE_ENV: development
-      PORT: 3003
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      REDIS_URL: redis://redis:6379
     ports:
       - "3003:3003"
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DATABASE_URL=postgresql://exi_user:exi_password@postgres-ifrs17:5432/exi_ifrs17
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres-ifrs17
+      - redis
     networks:
       - exi-network
-    volumes:
-      - ./backend/quote-engine:/app
-      - /app/node_modules
 
-  payment-service:
+  # Solvency II Service
+  solvency2-service:
     build:
-      context: ./backend/payment-service
+      context: ./backend/solvency2-service
       dockerfile: Dockerfile
-    container_name: exi-payment-service
-    environment:
-      NODE_ENV: development
-      PORT: 3004
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      REDIS_URL: redis://redis:6379
-      STRIPE_SECRET_KEY: sk_test_your_stripe_test_key
-      STRIPE_WEBHOOK_SECRET: whsec_your_webhook_secret
     ports:
       - "3004:3004"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - exi-network
-    volumes:
-      - ./backend/payment-service:/app
-      - /app/node_modules
-
-  claims-service:
-    build:
-      context: ./backend/claims-service
-      dockerfile: Dockerfile
-    container_name: exi-claims-service
     environment:
-      NODE_ENV: development
-      PORT: 3005
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      REDIS_URL: redis://redis:6379
-    ports:
-      - "3005:3005"
+      - NODE_ENV=production
+      - PORT=3004
+      - DATABASE_URL=postgresql://exi_user:exi_password@postgres-solvency2:5432/exi_solvency2
+      - REDIS_URL=redis://redis:6379
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres-solvency2
+      - redis
     networks:
       - exi-network
-    volumes:
-      - ./backend/claims-service:/app
-      - /app/node_modules
-
-  notification-service:
-    build:
-      context: ./backend/notification-service
-      dockerfile: Dockerfile
-    container_name: exi-notification-service
-    environment:
-      NODE_ENV: development
-      PORT: 3006
-      REDIS_URL: redis://redis:6379
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: 587
-      SMTP_USER: your-email@gmail.com
-      SMTP_PASS: your-app-password
-      TWILIO_ACCOUNT_SID: your_twilio_account_sid
-      TWILIO_AUTH_TOKEN: your_twilio_auth_token
-      TWILIO_PHONE_NUMBER: your_twilio_phone_number
-    ports:
-      - "3006:3006"
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - exi-network
-    volumes:
-      - ./backend/notification-service:/app
-      - /app/node_modules
-
-  document-service:
-    build:
-      context: ./backend/document-service
-      dockerfile: Dockerfile
-    container_name: exi-document-service
-    environment:
-      NODE_ENV: development
-      PORT: 3007
-      DATABASE_URL: postgresql://exi_user:exi_password@postgres:5432/exi_main
-      AWS_ACCESS_KEY_ID: your-aws-access-key
-      AWS_SECRET_ACCESS_KEY: your-aws-secret-key
-      AWS_REGION: us-east-1
-      S3_BUCKET: exi-documents
-    ports:
-      - "3007:3007"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - exi-network
-    volumes:
-      - ./backend/document-service:/app
-      - /app/node_modules
 
   # Frontend Services
   user-portal:
     build:
       context: ./frontend/user-portal
       dockerfile: Dockerfile
-    container_name: exi-user-portal
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3000
-      NODE_ENV: development
     ports:
-      - "4000:3000"
+      - "8080:80"
+    environment:
+      - REACT_APP_API_URL=http://api-gateway:3000
     depends_on:
       - api-gateway
     networks:
       - exi-network
-    volumes:
-      - ./frontend/user-portal:/app
-      - /app/node_modules
 
-  admin-dashboard:
+  admin-portal:
     build:
-      context: ./frontend/admin-dashboard
+      context: ./frontend/admin-portal
       dockerfile: Dockerfile
-    container_name: exi-admin-dashboard
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3000
-      NODE_ENV: development
     ports:
-      - "4001:3000"
+      - "8081:80"
+    environment:
+      - REACT_APP_API_URL=http://api-gateway:3000
     depends_on:
       - api-gateway
     networks:
       - exi-network
-    volumes:
-      - ./frontend/admin-dashboard:/app
-      - /app/node_modules
 
-  provider-portal:
-    build:
-      context: ./frontend/provider-portal
-      dockerfile: Dockerfile
-    container_name: exi-provider-portal
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3000
-      NODE_ENV: development
-    ports:
-      - "4002:3000"
-    depends_on:
-      - api-gateway
-    networks:
-      - exi-network
-    volumes:
-      - ./frontend/provider-portal:/app
-      - /app/node_modules
-
-  broker-portal:
-    build:
-      context: ./frontend/broker-portal
-      dockerfile: Dockerfile
-    container_name: exi-broker-portal
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3000
-      NODE_ENV: development
-    ports:
-      - "4003:3000"
-    depends_on:
-      - api-gateway
-    networks:
-      - exi-network
-    volumes:
-      - ./frontend/broker-portal:/app
-      - /app/node_modules
-
-  # Monitoring & Observability
+  # Monitoring Services
   prometheus:
     image: prom/prometheus:latest
-    container_name: exi-prometheus
     ports:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
-    networks:
-      - exi-network
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
       - '--web.enable-lifecycle'
+    networks:
+      - exi-network
 
   grafana:
     image: grafana/grafana:latest
-    container_name: exi-grafana
     ports:
-      - "3008:3000"
+      - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_USERS_ALLOW_SIGN_UP: false
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
-    networks:
-      - exi-network
     depends_on:
       - prometheus
-
-  # Message Queue
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: exi-rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: exi_user
-      RABBITMQ_DEFAULT_PASS: exi_password
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - exi-network
 
-  # Search Engine
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: exi-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  # Security Services
+  vault:
+    image: vault:latest
     ports:
-      - "9200:9200"
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=root
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    cap_add:
+      - IPC_LOCK
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
+      - vault_data:/vault/data
     networks:
       - exi-network
 
-  # File Storage
-  minio:
-    image: minio/minio:latest
-    container_name: exi-minio
+  # Load Balancer
+  nginx:
+    image: nginx:alpine
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: exi_user
-      MINIO_ROOT_PASSWORD: exi_password
+      - "80:80"
+      - "443:443"
     volumes:
-      - minio_data:/data
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infrastructure/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - api-gateway
+      - user-portal
+      - admin-portal
     networks:
       - exi-network
-    command: server /data --console-address ":9001"
 
 volumes:
-  postgres_data:
+  postgres_main_data:
+  postgres_ifrs9_data:
+  postgres_ifrs15_data:
+  postgres_ifrs17_data:
+  postgres_solvency2_data:
   redis_data:
   prometheus_data:
   grafana_data:
-  rabbitmq_data:
-  elasticsearch_data:
-  minio_data:
+  vault_data:
 
 networks:
   exi-network:
