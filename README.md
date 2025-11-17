@@ -12,9 +12,9 @@ This repository focuses on **AI research and automation** across various financi
 
 - 🔍 **Research**: Cursor (Claude, GPT-5, ...)
 - ⚡ **Automation**: Streamlined processes and workflows
-- 🏦 **Domains**: Crypto, Securities, Banking, Insurance, Finance, Lending, Electric Wallet
+- 🏦 **Domains**: Crypto, Securities, Banking, Insurance, Finance, Lending, Electric Wallet, Universal Financial
 
-## 🚀 Current Status
+## �� Current Status
 
 **Period**: August 2025 - Present
 
@@ -43,6 +43,7 @@ This repository focuses on **AI research and automation** across various financi
 | 🛡️ **Insurance** | [exi](https://github.com/minhnguyenkhac1983/exi.git) | Insurance industry solutions |
 | 💳 **Lending** | [exl](https://github.com/minhnguyenkhac1983/exl.git) | Lending and credit management solutions |
 | ⚡ **Electric Wallet** | [exw](https://github.com/minhnguyenkhac1983/exw.git) | Digital wallet and payment solutions |
+| 🏛️ **Universal Financial** | [exu](https://github.com/minhnguyenkhac1983/exu.git) | Vietnam Financial Center Platform - Comprehensive financial services platform |
 
 ## 🛠️ Technologies & Tools
 
