@@ -1,18 +1,26 @@
 version: '3.8'
 
 services:
-  # PostgreSQL - Primary Database
+  # PostgreSQL 17 - Primary Database (Upgraded)
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: exu-postgres
     environment:
       POSTGRES_USER: exu
       POSTGRES_PASSWORD: exu_dev_password
       POSTGRES_DB: exu_financial
+      # Enable modern PostgreSQL features
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Init script for extensions
+      - ./infrastructure/modern-tech/database/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql:ro
+    command: 
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb,vector
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U exu"]
       interval: 10s
@@ -43,7 +51,7 @@ services:
 
   # Redis - Cache & Sessions
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: exu-redis
     ports:
       - "6379:6379"
@@ -59,7 +67,7 @@ services:
 
   # Kafka - Event Streaming
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
+    image: confluentinc/cp-zookeeper:7.6.0
     container_name: exu-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -70,7 +78,7 @@ services:
       - exu-network
 
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.6.0
     container_name: exu-kafka
     depends_on:
       - zookeeper
@@ -82,11 +90,90 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Modern Kafka features
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - exu-network
+
+  # OpenTelemetry Collector - Modern Observability
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: exu-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infrastructure/modern-tech/observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+      - "8889:8889"  # Prometheus metrics
+    depends_on:
+      - jaeger
+    networks:
+      - exu-network
+
+  # Jaeger - Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: exu-jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "14268:14268"  # HTTP collector
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    networks:
+      - exu-network
+
+  # Milvus - Vector Database for AI/ML
+  etcd:
+    image: quay.io/coreos/etcd:v3.6.0
+    container_name: exu-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - exu-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: exu-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - exu-network
+
+  milvus:
+    image: milvusdb/milvus:latest
+    container_name: exu-milvus
+    depends_on:
+      - etcd
+      - minio
+    ports:
+      - "19530:19530"
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
     networks:
       - exu-network
 
@@ -104,7 +191,7 @@ services:
       - exu-network
 
   kong-migrations:
-    image: kong:3.4
+    image: kong:3.6
     container_name: exu-kong-migrations
     depends_on:
       - kong-database
@@ -117,64 +204,6 @@ services:
     networks:
       - exu-network
 
-  kong:
-    image: kong:3.4
-    container_name: exu-kong
-    depends_on:
-      - kong-database
-      - kong-migrations
-    environment:
-      KONG_DATABASE: postgres
-      KONG_PG_HOST: kong-database
-      KONG_PG_USER: kong
-      KONG_PG_PASSWORD: kong_dev_password
-      KONG_PROXY_ACCESS_LOG: /dev/stdout
-      KONG_ADMIN_ACCESS_LOG: /dev/stdout
-      KONG_PROXY_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
-    ports:
-      - "8000:8000"  # Proxy
-      - "8443:8443"  # Proxy SSL
-      - "8001:8001"  # Admin API
-      - "8444:8444"  # Admin API SSL
-    healthcheck:
-      test: ["CMD", "kong", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - exu-network
-
-  # Prometheus - Monitoring
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: exu-prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-    networks:
-      - exu-network
-
-  # Grafana - Visualization
-  grafana:
-    image: grafana/grafana:latest
-    container_name: exu-grafana
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-    networks:
-      - exu-network
 
   # IAM Service
   iam:
@@ -216,13 +245,1389 @@ services:
     networks:
       - exu-network
 
+  # Payment Gateway Service
+  payment:
+    build:
+      context: ./services/payment
+      dockerfile: Dockerfile
+    container_name: exu-payment
+    ports:
+      - "8082:8082"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8082"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      NAPAS_API_URL: https://api-test.napas.com.vn
+      NAPAS_API_KEY: test-api-key
+      NAPAS_MERCHANT_ID: test-merchant-id
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # E-Wallet Service
+  wallet:
+    build:
+      context: ./services/wallet
+      dockerfile: Dockerfile
+    container_name: exu-wallet
+    ports:
+      - "8083:8083"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8083"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      MAX_WALLET_BALANCE: "100000000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # KYC/eKYC Service
+  kyc:
+    build:
+      context: ./services/kyc
+      dockerfile: Dockerfile
+    container_name: exu-kyc
+    ports:
+      - "8084:8084"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8084"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      STORAGE_PATH: /storage/kyc
+      OCR_SERVICE_URL: http://ocr-service:9000
+      FACE_RECOGNITION_URL: http://face-service:9001
+      MAX_FILE_SIZE: "10485760"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    volumes:
+      - kyc_storage:/storage/kyc
+    networks:
+      - exu-network
+
+  # Securities Trading Service
+  trading:
+    build:
+      context: ./services/trading
+      dockerfile: Dockerfile
+    container_name: exu-trading
+    ports:
+      - "8085:8085"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8085"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      HOSE_API_URL: https://api.hsx.vn
+      HNX_API_URL: https://api.hnx.vn
+      VSD_API_URL: https://api.vsd.vn
+      MARKET_DATA_URL: wss://market-data.exu.vn
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Wealth Management Service
+  wealth:
+    build:
+      context: ./services/wealth
+      dockerfile: Dockerfile
+    container_name: exu-wealth
+    ports:
+      - "8086:8086"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8086"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      TRADING_SERVICE_URL: http://trading:8085
+      ML_SERVICE_URL: http://ml-service:9002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Remittance Service
+  remittance:
+    build:
+      context: ./services/remittance
+      dockerfile: Dockerfile
+    container_name: exu-remittance
+    ports:
+      - "8087:8087"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8087"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      SWIFT_API_URL: https://api.swift.com
+      WESTERN_UNION_URL: https://api.westernunion.com
+      MONEYGRAM_URL: https://api.moneygram.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # BNPL Service
+  bnpl:
+    build:
+      context: ./services/bnpl
+      dockerfile: Dockerfile
+    container_name: exu-bnpl
+    ports:
+      - "8088:8088"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8088"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      CREDIT_SCORING_URL: http://credit-service:9003
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Trade Finance Service
+  tradefinance:
+    build:
+      context: ./services/tradefinance
+      dockerfile: Dockerfile
+    container_name: exu-tradefinance
+    ports:
+      - "8089:8089"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8089"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      BLOCKCHAIN_URL: http://blockchain:8545
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Risk Management Service
+  risk:
+    build:
+      context: ./services/risk
+      dockerfile: Dockerfile
+    container_name: exu-risk
+    ports:
+      - "8091:8091"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8091"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Compliance Service
+  compliance:
+    build:
+      context: ./services/compliance
+      dockerfile: Dockerfile
+    container_name: exu-compliance
+    ports:
+      - "8096:8096"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8096"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Notification Service
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: exu-notification
+    ports:
+      - "8099:8099"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8099"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "587"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Analytics & Reporting Service
+  analytics:
+    build:
+      context: ./services/analytics
+      dockerfile: Dockerfile
+    container_name: exu-analytics
+    ports:
+      - "8092:8092"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8092"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CLICKHOUSE_URL: http://clickhouse:8123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Document Management Service
+  document:
+    build:
+      context: ./services/document
+      dockerfile: Dockerfile
+    container_name: exu-document
+    ports:
+      - "8094:8094"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8094"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      STORAGE_PATH: /var/lib/exu/documents
+    volumes:
+      - document_storage:/var/lib/exu/documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Workflow Engine Service
+  workflow:
+    build:
+      context: ./services/workflow
+      dockerfile: Dockerfile
+    container_name: exu-workflow
+    ports:
+      - "8095:8095"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8095"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Open Banking Service
+  openbanking:
+    build:
+      context: ./services/openbanking
+      dockerfile: Dockerfile
+    container_name: exu-openbanking
+    ports:
+      - "8090:8090"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8090"
+      DATABASE_URL: postgres://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      OAUTH2_ISSUER: http://localhost:8090
+      OAUTH2_CLIENT_SECRET: dev-secret-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Admin Portal (Next.js)
+  admin-portal:
+    build:
+      context: ./web/admin
+      dockerfile: Dockerfile
+    container_name: exu-admin-portal
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      - iam
+    networks:
+      - exu-network
+
+  # Customer Portal (Next.js)
+  customer-portal:
+    build:
+      context: ./web/customer
+      dockerfile: Dockerfile
+    container_name: exu-customer-portal
+    ports:
+      - "3001:3001"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      - iam
+    networks:
+      - exu-network
+
+  # Kong API Gateway
+  kong:
+    image: kong:3.6
+    container_name: exu-kong
+    ports:
+      - "8000:8000"   # HTTP
+      - "8443:8443"   # HTTPS
+      - "8001:8001"   # Admin API
+      - "8444:8444"   # Admin API HTTPS
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ./infrastructure/kong/kong.yml:/kong/kong.yml:ro
+    depends_on:
+      - iam
+      - banking
+      - payment
+      - wallet
+      - kyc
+      - trading
+      - wealth
+      - remittance
+      - bnpl
+      - tradefinance
+      - openbanking
+    networks:
+      - exu-network
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: exu-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - exu-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: exu-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - exu-network
+
+  # Account Management Service - Core Platform
+  account:
+    build:
+      context: ./services/account
+      dockerfile: Dockerfile
+    container_name: exu-account
+    ports:
+      - "8097:8097"
+    environment:
+      PORT: "8097"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Transaction Engine - Core Platform
+  transaction-engine:
+    build:
+      context: ./services/transaction-engine
+      dockerfile: Dockerfile
+    container_name: exu-transaction-engine
+    ports:
+      - "8091:8091"
+    environment:
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # AML Screening Service - Core Platform
+  aml:
+    build:
+      context: ./services/aml
+      dockerfile: Dockerfile
+    container_name: exu-aml
+    ports:
+      - "8092:8092"
+    environment:
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Reporting Service - Core Platform
+  reporting:
+    build:
+      context: ./services/reporting
+      dockerfile: Dockerfile
+    container_name: exu-reporting
+    ports:
+      - "8093:8093"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8093"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      CLICKHOUSE_URL: clickhouse://clickhouse:9000/default
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      ANALYTICS_SERVICE_URL: http://analytics:8092
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Crypto Exchange Module
+  crypto:
+    build:
+      context: ./services/crypto
+      dockerfile: Dockerfile
+    container_name: exu-crypto
+    ports:
+      - "8094:8094"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8094"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      WALLET_SERVICE_URL: http://wallet:8083
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Insurance Module
+  insurance:
+    build:
+      context: ./services/insurance
+      dockerfile: Dockerfile
+    container_name: exu-insurance
+    ports:
+      - "8095:8095"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8095"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # P2P Lending Module
+  p2p-lending:
+    build:
+      context: ./services/p2p-lending
+      dockerfile: Dockerfile
+    container_name: exu-p2p-lending
+    ports:
+      - "8096:8096"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8096"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      RISK_SERVICE_URL: http://risk:8097
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # RabbitMQ - Message Queue
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: exu-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: exu
+      RABBITMQ_DEFAULT_PASS: exu_dev_password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exu-network
+
+  # ClickHouse - Analytics Database
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: exu-clickhouse
+    ports:
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native
+    environment:
+      CLICKHOUSE_DB: exu_analytics
+      CLICKHOUSE_USER: exu
+      CLICKHOUSE_PASSWORD: exu_dev_password
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exu-network
+
+  # Elasticsearch - Search Engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: exu-elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - exu-network
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: exu-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - exu-network
+
+  # Promtail - Log Shipper for Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: exu-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - ./infrastructure/logging/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - exu-network
+
+  # Apache Flink - Stream Processing
+  flink-jobmanager:
+    image: flink:1.18-scala_2.12
+    container_name: exu-flink-jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
+    volumes:
+      - flink_data:/opt/flink/data
+    networks:
+      - exu-network
+
+  flink-taskmanager:
+    image: flink:1.18-scala_2.12
+    container_name: exu-flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
+    volumes:
+      - flink_data:/opt/flink/data
+    networks:
+      - exu-network
+
+  # Market Data Service - Securities Module
+  market-data:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: exu-market-data
+    ports:
+      - "8098:8098"
+    environment:
+      PORT: "8098"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TIMESCALEDB_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Settlement Service - Securities Module
+  settlement:
+    build:
+      context: ./services/settlement
+      dockerfile: Dockerfile
+    container_name: exu-settlement
+    ports:
+      - "8099:8099"
+    environment:
+      PORT: "8099"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRADING_SERVICE_URL: http://trading:8085
+      BANKING_SERVICE_URL: http://banking:8081
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      trading:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Clearing Service - Securities Module
+  clearing:
+    build:
+      context: ./services/clearing
+      dockerfile: Dockerfile
+    container_name: exu-clearing
+    ports:
+      - "8100:8100"
+    environment:
+      PORT: "8100"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRADING_SERVICE_URL: http://trading:8085
+      SETTLEMENT_SERVICE_URL: http://settlement:8099
+      RISK_SERVICE_URL: http://risk:8091
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      trading:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Custody Service - Securities Module
+  custody:
+    build:
+      context: ./services/custody
+      dockerfile: Dockerfile
+    container_name: exu-custody
+    ports:
+      - "8101:8101"
+    environment:
+      PORT: "8101"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRADING_SERVICE_URL: http://trading:8085
+      SETTLEMENT_SERVICE_URL: http://settlement:8099
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      trading:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # ML Model Serving Service - AI/ML Platform
+  ml-service:
+    build:
+      context: ./services/ml-service
+      dockerfile: Dockerfile
+    container_name: exu-ml-service
+    ports:
+      - "8102:8102"
+    environment:
+      PORT: "8102"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      MILVUS_URL: milvus:19530
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+      redis:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Debezium - Change Data Capture (CDC)
+  debezium-connect:
+    image: debezium/connect:2.5
+    container_name: exu-debezium-connect
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+    depends_on:
+      - kafka
+      - postgres
+    networks:
+      - exu-network
+
+  # Credit Scoring Service - Core Platform
+  credit-scoring:
+    build:
+      context: ./services/credit-scoring
+      dockerfile: Dockerfile
+    container_name: exu-credit-scoring
+    ports:
+      - "8103:8103"
+    environment:
+      PORT: "8103"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      ML_SERVICE_URL: http://ml-service:8102
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      ml-service:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Fraud Detection Service - Core Platform
+  fraud-detection:
+    build:
+      context: ./services/fraud-detection
+      dockerfile: Dockerfile
+    container_name: exu-fraud-detection
+    ports:
+      - "8104:8104"
+    environment:
+      PORT: "8104"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      ML_SERVICE_URL: http://ml-service:8102
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      ml-service:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Reconciliation Service - Core Platform
+  reconciliation:
+    build:
+      context: ./services/reconciliation
+      dockerfile: Dockerfile
+    container_name: exu-reconciliation
+    ports:
+      - "8105:8105"
+    environment:
+      PORT: "8105"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRANSACTION_ENGINE_URL: http://transaction-engine:8091
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      transaction-engine:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Fee Calculation Service - Core Platform
+  fee-calculation:
+    build:
+      context: ./services/fee-calculation
+      dockerfile: Dockerfile
+    container_name: exu-fee-calculation
+    ports:
+      - "8106:8106"
+    environment:
+      PORT: "8106"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      PAYMENT_SERVICE_URL: http://payment:8082
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      payment:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Rules Engine Service - Core Platform
+  rules-engine:
+    build:
+      context: ./services/rules-engine
+      dockerfile: Dockerfile
+    container_name: exu-rules-engine
+    ports:
+      - "8107:8107"
+    environment:
+      PORT: "8107"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # OCR Service - Core Platform
+  ocr-service:
+    build:
+      context: ./services/ocr-service
+      dockerfile: Dockerfile
+    container_name: exu-ocr-service
+    ports:
+      - "8108:8108"
+    environment:
+      PORT: "8108"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      MINIO_URL: http://minio:9000
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # E-Signature Service - Core Platform
+  esignature:
+    build:
+      context: ./services/esignature
+      dockerfile: Dockerfile
+    container_name: exu-esignature
+    ports:
+      - "8109:8109"
+    environment:
+      PORT: "8109"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      DOCUMENT_SERVICE_URL: http://document:8094
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      document:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Order Management System (OMS) - Securities Module
+  oms:
+    build:
+      context: ./services/oms
+      dockerfile: Dockerfile
+    container_name: exu-oms
+    ports:
+      - "8110:8110"
+    environment:
+      PORT: "8110"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRADING_SERVICE_URL: http://trading:8085
+      MARKET_DATA_URL: http://market-data:8098
+      RISK_SERVICE_URL: http://risk:8091
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      trading:
+        condition: service_started
+      market-data:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Execution Management System (EMS) - Securities Module
+  ems:
+    build:
+      context: ./services/ems
+      dockerfile: Dockerfile
+    container_name: exu-ems
+    ports:
+      - "8111:8111"
+    environment:
+      PORT: "8111"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      OMS_SERVICE_URL: http://oms:8110
+      MARKET_DATA_URL: http://market-data:8098
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      oms:
+        condition: service_started
+      market-data:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Portfolio Service - Securities & Wealth Management
+  portfolio:
+    build:
+      context: ./services/portfolio
+      dockerfile: Dockerfile
+    container_name: exu-portfolio
+    ports:
+      - "8112:8112"
+    environment:
+      PORT: "8112"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      TRADING_SERVICE_URL: http://trading:8085
+      MARKET_DATA_URL: http://market-data:8098
+      WEALTH_SERVICE_URL: http://wealth:8086
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      trading:
+        condition: service_started
+      market-data:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Actuarial Service - Insurance Module
+  actuarial:
+    build:
+      context: ./services/actuarial
+      dockerfile: Dockerfile
+    container_name: exu-actuarial
+    ports:
+      - "8113:8113"
+    environment:
+      PORT: "8113"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      ML_SERVICE_URL: http://ml-service:8102
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      insurance:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Reinsurance Service - Insurance Module
+  reinsurance:
+    build:
+      context: ./services/reinsurance
+      dockerfile: Dockerfile
+    container_name: exu-reinsurance
+    ports:
+      - "8114:8114"
+    environment:
+      PORT: "8114"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      ACTUARIAL_SERVICE_URL: http://actuarial:8113
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      insurance:
+        condition: service_started
+      actuarial:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Matching Engine Service - Securities Trading
+  matching-engine:
+    build:
+      context: ./services/matching-engine
+      dockerfile: Dockerfile
+    container_name: exu-matching-engine
+    ports:
+      - "8115:8115"
+    environment:
+      PORT: "8115"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      OMS_SERVICE_URL: http://oms:8110
+      MARKET_DATA_URL: http://market-data:8098
+      RISK_SERVICE_URL: http://risk:8091
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      oms:
+        condition: service_started
+      market-data:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Batch Processing Service - ETL/Batch Jobs
+  batch-processing:
+    build:
+      context: ./services/batch-processing
+      dockerfile: Dockerfile
+    container_name: exu-batch-processing
+    ports:
+      - "8116:8116"
+    environment:
+      PORT: "8116"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      CLICKHOUSE_URL: http://clickhouse:8123
+      SCHEDULER_SERVICE_URL: http://scheduler:8117
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      clickhouse:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Scheduler Service - Job Scheduling
+  scheduler:
+    build:
+      context: ./services/scheduler
+      dockerfile: Dockerfile
+    container_name: exu-scheduler
+    ports:
+      - "8117:8117"
+    environment:
+      PORT: "8117"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
 volumes:
   postgres_data:
   mongo_data:
   redis_data:
-  kong_data:
+  kyc_storage:
+  document_storage:
   prometheus_data:
   grafana_data:
+  etcd_data:
+  minio_data:
+  milvus_data:
+  loki_data:
+  kong_data:
+  rabbitmq_data:
+  clickhouse_data:
+  elasticsearch_data:
+  flink_data:
 
 networks:
   exu-network:
