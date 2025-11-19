@@ -5,21 +5,41 @@ A comprehensive, production-ready financial services platform built with microse
 ## 🎯 Overview
 
 EXU Financial Platform là nền tảng tài chính toàn diện cho Trung Tâm Tài Chính Việt Nam, hỗ trợ:
-- Banking operations (Ngân hàng)
-- Payment processing (Thanh toán)
-- Securities trading (Giao dịch chứng khoán)
-- Market data streaming (Dữ liệu thị trường)
-- Digital wallets (Ví điện tử)
-- Identity & Access Management (Quản lý danh tính)
-- Crypto Exchange (Sàn giao dịch tiền điện tử)
-- Insurance (Bảo hiểm)
-- P2P Lending (Cho vay ngang hàng)
-- Wealth Management (Quản lý tài sản)
-- Remittance (Chuyển tiền)
-- BNPL (Mua trước trả sau)
-- Trade Finance (Tài trợ thương mại)
-- Open Banking (Ngân hàng mở)
-- Và 40+ services khác
+
+### Core Financial Services
+- **Banking Operations** - Core banking, account management, deposits, loans
+- **Payment Processing** - Payment gateway, NAPAS integration, bill payments
+- **Securities Trading** - Stock trading, portfolio management, OMS/EMS
+- **Market Data** - Real-time market data streaming, quotes, charts
+- **Digital Wallets** - E-wallet, P2P transfers, QR payments, super app features
+- **Identity & Access Management** - Authentication, authorization, user management
+
+### Advanced Services
+- **Crypto Exchange** - Spot, margin, futures, options trading
+- **DeFi Services** - Staking, liquidity mining, yield farming, lending
+- **NFT Marketplace** - NFT minting, trading, collections
+- **Insurance** - Policy management, claims, underwriting, actuarial
+- **P2P Lending** - Peer-to-peer lending platform
+- **Wealth Management** - Investment advisory, portfolio management
+- **Trade Finance** - Letters of credit, bank guarantees, documentary collections
+- **Open Banking** - API platform, third-party integrations
+- **Remittance** - Cross-border transfers, FX services
+- **BNPL** - Buy Now Pay Later services
+
+### Supporting Services
+- **Risk & Compliance** - Risk management, AML screening, fraud detection
+- **Analytics & Reporting** - Business intelligence, ML services
+- **Infrastructure Services** - Caching, messaging, search, file storage
+- **Và 100+ microservices khác**
+
+## 🚦 Start Here
+
+- `QUICK_START.md` – 5-minute local spin-up với Docker/Make
+- `docs/GETTING_STARTED.md` – Thiết lập chi tiết cho Windows, macOS, Linux
+- `docs/PROJECT_STRUCTURE.md` – Bản đồ repo + naming conventions
+- `docs/COMPLETE_IMPLEMENTATION.md` – Chi tiết toàn bộ services, giao thức và pattern
+- `docs/PRODUCTION_READY.md` + `docs/DEPLOY_PRODUCTION_PROXMOX.md` – Production & vận hành
+- `plan/vietnam-financial-center-tech-architecture.md` – Tổng quan kiến trúc cấp độ enterprise
 
 ## ✨ Key Features
 
@@ -97,8 +117,14 @@ EXU Financial Platform là nền tảng tài chính toàn diện cho Trung Tâm 
 
 ### Local Development
 
+> 📘 **Need a full walkthrough?** Xem `QUICK_START.md` (fast track) hoặc `docs/GETTING_STARTED.md` (chi tiết kèm troubleshooting).
+
 1. **Start Infrastructure**
 ```bash
+# Recommended (Make)
+make dev            # wrapper cho docker-compose up -d
+
+# Hoặc thuần Docker
 docker-compose up -d
 ```
 
@@ -153,7 +179,7 @@ kubectl apply -f infrastructure/kubernetes/ingress/
 ```
 exu-financial-platform/                    # Vietnam Financial Center Platform
 │
-├── 📁 services/                          # Microservices (50+ services)
+├── 📁 services/                          # Microservices (100+ services)
 │   │
 │   ├── 🔐 Core Platform Services
 │   │   ├── iam/                         # Identity & Access Management
@@ -185,7 +211,17 @@ exu-financial-platform/                    # Vietnam Financial Center Platform
 │   │   └── custody/                     # Custody Service
 │   │
 │   ├── 💰 Crypto & Digital Assets
-│   │   └── crypto/                      # Crypto Exchange Service
+│   │   ├── crypto/                      # Crypto Exchange Service (Spot Trading)
+│   │   ├── crypto-margin/               # Margin Trading Service (Leverage trading)
+│   │   ├── crypto-futures/              # Futures Trading Service (Perpetual & Quarterly)
+│   │   ├── crypto-options/              # Options Trading Service (Call/Put options)
+│   │   ├── crypto-wallet/               # Crypto Wallet Service (Hot/Cold wallets)
+│   │   ├── blockchain-node/             # Blockchain Node Management
+│   │   ├── defi-staking/                # DeFi Staking Service
+│   │   ├── defi-liquidity/              # Liquidity Mining Service
+│   │   ├── defi-yield/                  # Yield Farming Service
+│   │   ├── defi-lending/                # Crypto Lending/Borrowing Service
+│   │   └── nft-marketplace/             # NFT Marketplace Service
 │   │
 │   ├── 🛡️ Risk & Compliance Services
 │   │   ├── risk/                        # Risk Management
@@ -237,17 +273,78 @@ exu-financial-platform/                    # Vietnam Financial Center Platform
 │           ├── mtls/                     # mTLS utilities
 │           └── security/                 # Security utilities
 │
-├── 📁 web/                               # Frontend Applications
-│   ├── admin/                           # Admin Dashboard (Next.js)
-│   └── customer/                        # Customer Portal (Next.js)
+├── 📁 web/                               # Frontend Applications (Next.js)
+│   ├── admin/                           # Admin Dashboard
+│   │   ├── app/                         # Next.js App Router
+│   │   ├── components/                  # React components
+│   │   ├── styles/                      # Tailwind CSS styles
+│   │   └── package.json                 # Dependencies
+│   │
+│   ├── customer/                        # Customer Portal
+│   │   ├── app/                         # Next.js App Router
+│   │   ├── components/                  # React components
+│   │   ├── styles/                      # Tailwind CSS styles
+│   │   └── package.json                 # Dependencies
+│   │
+│   ├── trading-platform/                # Securities Trading Platform
+│   │   ├── TradingView integration      # Real-time charts
+│   │   ├── Order management UI          # Order placement & tracking
+│   │   └── Portfolio dashboard          # Portfolio management
+│   │
+│   ├── banking-portal/                  # Banking Portal
+│   │   ├── Account management           # Account operations
+│   │   ├── Transaction history          # Transaction tracking
+│   │   └── Transfer & payment           # Payment operations
+│   │
+│   ├── crypto-exchange/                 # Crypto Exchange Platform
+│   │   ├── Spot trading interface       # Spot trading UI
+│   │   ├── Futures trading              # Futures trading UI
+│   │   ├── Wallet management            # Crypto wallet UI
+│   │   └── NFT marketplace              # NFT marketplace UI
+│   │
+│   ├── insurance-portal/                # Insurance Portal
+│   │   ├── Policy management            # Policy operations
+│   │   ├── Claims processing            # Claims UI
+│   │   └── Product catalog              # Insurance products
+│   │
+│   └── landing/                         # Landing Page & Marketing Site
+│       ├── Homepage                     # Main landing page
+│       ├── Product pages                # Product information
+│       └── Documentation                # Public documentation
 │
-├── 📁 mobile/                           # Mobile Application
-│   └── App.tsx                          # React Native App
+├── 📁 mobile/                           # Mobile Applications (React Native)
+│   ├── trading-app/                    # Securities Trading Mobile App
+│   │   ├── Trading interface            # Mobile trading UI
+│   │   ├── Market data                  # Real-time market data
+│   │   └── Portfolio tracking           # Portfolio management
+│   │
+│   ├── banking-app/                     # Banking Mobile App
+│   │   ├── Account management           # Account operations
+│   │   ├── Payment & transfer          # Payment features
+│   │   ├── QR code payment              # QR payment scanner
+│   │   └── Bill payment                 # Utility bill payment
+│   │
+│   ├── wallet-app/                      # E-Wallet Mobile App
+│   │   ├── Wallet operations            # Wallet management
+│   │   ├── P2P transfer                 # Peer-to-peer transfer
+│   │   ├── QR code generation           # QR code payment
+│   │   └── Super app features           # Integrated services
+│   │
+│   ├── crypto-app/                      # Crypto Exchange Mobile App
+│   │   ├── Crypto trading               # Mobile crypto trading
+│   │   ├── Wallet management            # Crypto wallet
+│   │   ├── NFT marketplace              # NFT browsing & trading
+│   │   └── DeFi services                # DeFi features
+│   │
+│   └── admin-app/                       # Admin Mobile App
+│       ├── Dashboard                    # Admin dashboard
+│       ├── Monitoring                   # System monitoring
+│       └── Management                   # Management tools
 │
 ├── 📁 infrastructure/                    # Infrastructure as Code
 │   │
 │   ├── 🚀 Kubernetes Deployments
-│   │   ├── kubernetes/                  # K8s manifests (144 files)
+│   │   ├── kubernetes/                  # K8s manifests (157+ files)
 │   │   │   ├── services/                # Service deployments
 │   │   │   ├── hpa/                     # Horizontal Pod Autoscalers
 │   │   │   ├── frontend/                # Frontend deployments
@@ -344,7 +441,7 @@ exu-financial-platform/                    # Vietnam Financial Center Platform
 
 **Securities & Trading (9 services)**: Trading, Market Data, Portfolio, OMS, EMS, Matching Engine, Clearing, Settlement, Custody
 
-**Crypto & Digital Assets (1 service)**: Crypto Exchange
+**Crypto & Digital Assets (11 services)**: Crypto Exchange (Spot), Margin Trading, Futures Trading, Options Trading, Crypto Wallet, Blockchain Node, DeFi Staking, Liquidity Mining, Yield Farming, Crypto Lending, NFT Marketplace
 
 **Risk & Compliance (5 services)**: Risk, Compliance, AML, Fraud Detection, Credit Scoring
 
@@ -356,30 +453,54 @@ exu-financial-platform/                    # Vietnam Financial Center Platform
 
 **Supporting Services (8 services)**: Wealth, Open Banking, Reconciliation, Fee Calculation, Rules Engine, Batch Processing, Scheduler, OCR, E-Signature
 
-**Total: 50+ Microservices**
+**Total: 100+ Microservices**
+
+### Frontend Applications
+
+**Web Applications (7 apps)**: Admin Dashboard, Customer Portal, Trading Platform, Banking Portal, Crypto Exchange, Insurance Portal, Landing Page
+
+**Mobile Applications (5 apps)**: Trading App, Banking App, Wallet App, Crypto App, Admin App
 
 ## 📚 Documentation
 
-### Core Documentation
-- [Complete Implementation Guide](docs/COMPLETE_IMPLEMENTATION.md)
-- [HPA Configuration](docs/HPA_COMPLETE.md)
-- [mTLS, API Key, Cache, DLQ, Feature Flags](docs/MTLS_APIKEY_CACHE_DLQ_FEATURES.md)
-- [Setup Guide](docs/SETUP_GUIDE.md)
-- [Final Implementation Summary](docs/FINAL_IMPLEMENTATION_SUMMARY.md)
-- [Services Overview](SERVICES.md)
+### 🚦 Bắt Đầu Nhanh
+- **[Quick Start Guide](QUICK_START.md)** - Hướng dẫn setup nhanh trong 5 phút
+- **[Getting Started](docs/GETTING_STARTED.md)** - Hướng dẫn chi tiết cho Windows, macOS, Linux
+- **[Project Structure](docs/PROJECT_STRUCTURE.md)** - Chi tiết cấu trúc dự án và naming conventions
 
-### Infrastructure & Deployment
-- [Production Deployment Ready](PRODUCTION_READY.md)
-- [Proxmox Environment Guide](docs/PROXMOX_ENVIRONMENT.md)
-- [Production Deployment Guide](docs/DEPLOY_PRODUCTION_PROXMOX.md)
-- [GitLab CI/CD Setup](docs/GITLAB_CI_CD_SETUP.md)
-- [DevSecOps VMs Creation](infrastructure/proxmox/scripts/README-DEVSECOPS-VMS.md)
+### 📖 Core Documentation
+- **[Complete Implementation Guide](docs/COMPLETE_IMPLEMENTATION.md)** - Chi tiết implementation patterns
+- **[Services Overview](SERVICES.md)** - Tổng quan tất cả services
+- **[HPA Configuration](docs/HPA_COMPLETE.md)** - Horizontal Pod Autoscaling setup
+- **[mTLS, API Key, Cache, DLQ](docs/MTLS_APIKEY_CACHE_DLQ_FEATURES.md)** - Security & performance features
+- **[Setup Guide](docs/SETUP_GUIDE.md)** - Environment setup guide
+- **[Final Implementation Summary](docs/FINAL_IMPLEMENTATION_SUMMARY.md)** - Implementation status
 
-### Architecture
-- [Project Structure](docs/PROJECT_STRUCTURE.md) - Chi tiết cấu trúc dự án
-- [Technology Stack](docs/TECHNOLOGY_STACK.md)
-- [Production Architecture](docs/PRODUCTION_ARCHITECTURE.md)
-- [Vietnam Financial Center Architecture](plan/vietnam-financial-center-tech-architecture.md)
+### 🏗️ Infrastructure & Deployment
+- **[Production Ready](PRODUCTION_READY.md)** - Production readiness checklist
+- **[Proxmox Environment Guide](docs/PROXMOX_ENVIRONMENT.md)** - Proxmox setup và configuration
+- **[Production Deployment Guide](docs/DEPLOY_PRODUCTION_PROXMOX.md)** - Chi tiết deployment production
+- **[GitLab CI/CD Setup](docs/GITLAB_CI_CD_SETUP.md)** - CI/CD pipeline configuration
+- **[DevSecOps VMs Creation](infrastructure/proxmox/scripts/README-DEVSECOPS-VMS.md)** - DevSecOps environment setup
+- **[Deployment Summary](DEPLOYMENT_SUMMARY.md)** - Tổng kết deployment
+
+### 🏛️ Architecture & Planning
+- **[Project Structure](docs/PROJECT_STRUCTURE.md)** - Chi tiết cấu trúc dự án
+- **[Technology Stack](docs/TECHNOLOGY_STACK.md)** - Công nghệ sử dụng và roadmap
+- **[Production Architecture](docs/PRODUCTION_ARCHITECTURE.md)** - Kiến trúc production
+- **[Vietnam Financial Center Architecture](plan/vietnam-financial-center-tech-architecture.md)** - Kiến trúc tổng thể
+- **[Universal Financial Exchange](plan/universal_financial_exchange.txt)** - Exchange platform architecture
+
+### 🔧 Operations & Troubleshooting
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Giải quyết các vấn đề thường gặp
+- **[Runbooks](docs/RUNBOOKS.md)** - Operational runbooks
+- **[Disaster Recovery](docs/DISASTER_RECOVERY.md)** - Disaster recovery procedures
+- **[Secrets Management](docs/SECRETS_MANAGEMENT.md)** - Quản lý secrets và credentials
+
+### 📡 API Documentation
+- **[API Documentation](docs/api/README.md)** - API overview và guides
+- **[OpenAPI Specification](docs/api/openapi.yaml)** - OpenAPI 3.0 specification
+- **[Postman Collection](docs/api/postman/)** - Postman collections cho testing
 
 ## 🔧 Configuration
 
@@ -513,5 +634,8 @@ Built with modern microservices patterns and best practices.
 **Version**: 1.0.0
 **Last Updated**: December 2024
 **Project**: Vietnam Financial Center - EXU Financial Platform
-**Total Services**: 50+ microservices
-**Infrastructure**: Proxmox cluster với 21 Production VMs + 21 DevSecOps VMs
+**Total Services**: 100+ microservices
+**Web Applications**: 7 applications (Admin, Customer, Trading Platform, Banking Portal, Crypto Exchange, Insurance Portal, Landing)
+**Mobile Applications**: 5 applications (Trading App, Banking App, Wallet App, Crypto App, Admin App)
+**Infrastructure**: Proxmox cluster với 21 Production VMs + 21 DevSecOps VMs (42 VMs total)
+**Technology Stack**: Go 1.22+, PostgreSQL 17, MongoDB 7, Redis 7.2, Kafka, Kubernetes 1.30, Kong Gateway

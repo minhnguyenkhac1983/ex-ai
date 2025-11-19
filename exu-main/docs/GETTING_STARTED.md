@@ -1,4 +1,6 @@
-# Getting Started Guide
+# Getting Started Guide - Vietnam Financial Center Platform
+
+Hướng dẫn bắt đầu với EXU Financial Platform cho Trung Tâm Tài Chính Việt Nam.
 
 ## Prerequisites
 
@@ -124,20 +126,28 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 ```
 exu/
-├── services/          # Microservices
-│   └── iam/          # IAM service (example)
+├── services/          # 100+ Microservices
+│   ├── iam/          # IAM service (example)
+│   ├── banking/      # Banking service
+│   ├── payment/      # Payment service
+│   └── ...           # 100+ more services
 ├── infrastructure/    # Infrastructure as Code
-├── web/              # Web frontend
-├── mobile/           # Mobile apps
+├── web/              # Web frontend (7 applications)
+├── mobile/           # Mobile apps (5 applications)
 ├── scripts/          # Utility scripts
 └── docs/             # Documentation
 ```
 
+> **Note**: Hệ thống bao gồm **100+ microservices** được tổ chức theo domain. Xem [Project Structure](PROJECT_STRUCTURE.md) để biết chi tiết.
+
 ## Next Steps
 
-- Read [Architecture Documentation](../plan/vietnam-financial-center-tech-architecture.md)
-- Check [API Documentation](./api/)
-- Review [Development Guide](./development/)
+- **[Main README](../README.md)** - Tổng quan dự án và quick start
+- **[Project Structure](PROJECT_STRUCTURE.md)** - Chi tiết cấu trúc dự án
+- **[Services Overview](../SERVICES.md)** - Tổng quan các services
+- **[Architecture Documentation](../plan/vietnam-financial-center-tech-architecture.md)** - Kiến trúc tổng thể
+- **[API Documentation](./api/)** - API documentation và guides
+- **[Production Ready](../PRODUCTION_READY.md)** - Production deployment guide
 
 ## Troubleshooting
 

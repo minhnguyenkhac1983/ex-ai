@@ -840,6 +840,332 @@ services:
     networks:
       - exu-network
 
+  # Crypto Wallet Service
+  crypto-wallet:
+    build:
+      context: ./services/crypto-wallet
+      dockerfile: Dockerfile
+    container_name: exu-crypto-wallet
+    ports:
+      - "8200:8200"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8200"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      HSM_ENABLED: "false"
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Crypto Futures Trading Service
+  crypto-futures:
+    build:
+      context: ./services/crypto-futures
+      dockerfile: Dockerfile
+    container_name: exu-crypto-futures
+    ports:
+      - "8201:8201"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8201"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Crypto Margin Trading Service
+  crypto-margin:
+    build:
+      context: ./services/crypto-margin
+      dockerfile: Dockerfile
+    container_name: exu-crypto-margin
+    ports:
+      - "8202:8202"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8202"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      RISK_SERVICE_URL: http://risk:8091
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Crypto Options Trading Service
+  crypto-options:
+    build:
+      context: ./services/crypto-options
+      dockerfile: Dockerfile
+    container_name: exu-crypto-options
+    ports:
+      - "8203:8203"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8203"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      RISK_SERVICE_URL: http://risk:8091
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Blockchain Node Service
+  blockchain-node:
+    build:
+      context: ./services/blockchain-node
+      dockerfile: Dockerfile
+    container_name: exu-blockchain-node
+    ports:
+      - "8204:8204"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8204"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      KAFKA_BROKERS: kafka:9092
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # DeFi Lending Service
+  defi-lending:
+    build:
+      context: ./services/defi-lending
+      dockerfile: Dockerfile
+    container_name: exu-defi-lending
+    ports:
+      - "8205:8205"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8205"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      BLOCKCHAIN_NODE_URL: http://blockchain-node:8204
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+      blockchain-node:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # DeFi Liquidity Service
+  defi-liquidity:
+    build:
+      context: ./services/defi-liquidity
+      dockerfile: Dockerfile
+    container_name: exu-defi-liquidity
+    ports:
+      - "8206:8206"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8206"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      BLOCKCHAIN_NODE_URL: http://blockchain-node:8204
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+      blockchain-node:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # DeFi Staking Service
+  defi-staking:
+    build:
+      context: ./services/defi-staking
+      dockerfile: Dockerfile
+    container_name: exu-defi-staking
+    ports:
+      - "8207:8207"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8207"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      BLOCKCHAIN_NODE_URL: http://blockchain-node:8204
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+      blockchain-node:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # DeFi Yield Farming Service
+  defi-yield:
+    build:
+      context: ./services/defi-yield
+      dockerfile: Dockerfile
+    container_name: exu-defi-yield
+    ports:
+      - "8208:8208"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8208"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      BLOCKCHAIN_NODE_URL: http://blockchain-node:8204
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+      blockchain-node:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # NFT Marketplace Service
+  nft-marketplace:
+    build:
+      context: ./services/nft-marketplace
+      dockerfile: Dockerfile
+    container_name: exu-nft-marketplace
+    ports:
+      - "8209:8209"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8209"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CRYPTO_SERVICE_URL: http://crypto:8094
+      BLOCKCHAIN_NODE_URL: http://blockchain-node:8204
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      crypto:
+        condition: service_started
+      blockchain-node:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # FX Service - Banking Module
+  fx-service:
+    build:
+      context: ./services/fx-service
+      dockerfile: Dockerfile
+    container_name: exu-fx-service
+    ports:
+      - "8210:8210"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8210"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+    networks:
+      - exu-network
+
   # Insurance Module
   insurance:
     build:
@@ -863,6 +1189,454 @@ services:
         condition: service_healthy
       iam:
         condition: service_started
+    networks:
+      - exu-network
+
+  # Claims Service - Insurance Module
+  claims-service:
+    build:
+      context: ./services/claims-service
+      dockerfile: Dockerfile
+    container_name: exu-claims-service
+    ports:
+      - "8211:8211"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8211"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      insurance:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Underwriting Service - Insurance Module
+  underwriting-service:
+    build:
+      context: ./services/underwriting-service
+      dockerfile: Dockerfile
+    container_name: exu-underwriting-service
+    ports:
+      - "8212:8212"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8212"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      RISK_SERVICE_URL: http://risk:8091
+      ML_SERVICE_URL: http://ml-service:8102
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      insurance:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Investment Service - P2P Lending Module
+  investment-service:
+    build:
+      context: ./services/investment-service
+      dockerfile: Dockerfile
+    container_name: exu-investment-service
+    ports:
+      - "8213:8213"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8213"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      P2P_LENDING_SERVICE_URL: http://p2p-lending:8096
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      p2p-lending:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Collection Service - P2P Lending Module
+  collection-service:
+    build:
+      context: ./services/collection-service
+      dockerfile: Dockerfile
+    container_name: exu-collection-service
+    ports:
+      - "8214:8214"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8214"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      P2P_LENDING_SERVICE_URL: http://p2p-lending:8096
+      PAYMENT_SERVICE_URL: http://payment:8082
+      NOTIFICATION_SERVICE_URL: http://notification:8099
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      p2p-lending:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Super App Service - E-Wallet Module
+  super-app-service:
+    build:
+      context: ./services/super-app-service
+      dockerfile: Dockerfile
+    container_name: exu-super-app-service
+    ports:
+      - "8215:8215"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8215"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      WALLET_SERVICE_URL: http://wallet:8083
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      wallet:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Loyalty Service - E-Wallet Module
+  loyalty-service:
+    build:
+      context: ./services/loyalty-service
+      dockerfile: Dockerfile
+    container_name: exu-loyalty-service
+    ports:
+      - "8216:8216"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8216"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      WALLET_SERVICE_URL: http://wallet:8083
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      wallet:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # User Profile Service - Core Platform
+  user-profile-service:
+    build:
+      context: ./services/user-profile-service
+      dockerfile: Dockerfile
+    container_name: exu-user-profile-service
+    ports:
+      - "8217:8217"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8217"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Merchant Management Service - E-Wallet Module
+  merchant-management-service:
+    build:
+      context: ./services/merchant-management-service
+      dockerfile: Dockerfile
+    container_name: exu-merchant-management-service
+    ports:
+      - "8218:8218"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8218"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      PAYMENT_SERVICE_URL: http://payment:8082
+      KYC_SERVICE_URL: http://kyc:8084
+      DOCUMENT_SERVICE_URL: http://document:8094
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      kyc:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Loan Management Service - Banking Module
+  loan-management:
+    build:
+      context: ./services/loan-management
+      dockerfile: Dockerfile
+    container_name: exu-loan-management
+    ports:
+      - "8219:8219"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8219"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      CREDIT_SCORING_SERVICE_URL: http://credit-scoring:8103
+      RISK_SERVICE_URL: http://risk:8091
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Deposit Service - Banking Module
+  deposit-service:
+    build:
+      context: ./services/deposit-service
+      dockerfile: Dockerfile
+    container_name: exu-deposit-service
+    ports:
+      - "8220:8220"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8220"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      ACCOUNT_SERVICE_URL: http://account:8097
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Card Management Service - Banking Module
+  card-management:
+    build:
+      context: ./services/card-management
+      dockerfile: Dockerfile
+    container_name: exu-card-management
+    ports:
+      - "8221:8221"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8221"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      PAYMENT_SERVICE_URL: http://payment:8082
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Corporate Actions Service - Securities Module
+  corporate-actions:
+    build:
+      context: ./services/corporate-actions
+      dockerfile: Dockerfile
+    container_name: exu-corporate-actions
+    ports:
+      - "8222:8222"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8222"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      SECURITIES_SERVICE_URL: http://securities:8093
+      CUSTODY_SERVICE_URL: http://custody:8202
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      securities:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Agent Management Service - Insurance Module
+  agent-management:
+    build:
+      context: ./services/agent-management
+      dockerfile: Dockerfile
+    container_name: exu-agent-management
+    ports:
+      - "8223:8223"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8223"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      COMMISSION_SERVICE_URL: http://commission:8104
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      insurance:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Broker Portal Service - Securities Module
+  broker-portal-service:
+    build:
+      context: ./services/broker-portal-service
+      dockerfile: Dockerfile
+    container_name: exu-broker-portal-service
+    ports:
+      - "8224:8224"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8224"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      SECURITIES_SERVICE_URL: http://securities:8093
+      AGENT_MANAGEMENT_URL: http://agent-management:8223
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      securities:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # API Key Management Service - Core Platform
+  api-key-service:
+    build:
+      context: ./services/api-key
+      dockerfile: Dockerfile
+    container_name: exu-api-key-service
+    ports:
+      - "8118:8118"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8118"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # Feature Flags Service - Core Platform
+  feature-flags-service:
+    build:
+      context: ./services/feature-flags
+      dockerfile: Dockerfile
+    container_name: exu-feature-flags-service
+    ports:
+      - "8119:8119"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8119"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - exu-network
 
@@ -1608,6 +2382,585 @@ services:
         condition: service_started
       iam:
         condition: service_started
+    networks:
+      - exu-network
+
+  # General Ledger Service - Banking Module
+  general-ledger:
+    build:
+      context: ./services/general-ledger
+      dockerfile: Dockerfile
+    container_name: exu-general-ledger
+    ports:
+      - "8225:8225"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8225"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Customer Information System - Banking Module
+  customer-information:
+    build:
+      context: ./services/customer-information
+      dockerfile: Dockerfile
+    container_name: exu-customer-information
+    ports:
+      - "8226:8226"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8226"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      USER_PROFILE_SERVICE_URL: http://user-profile-service:8217
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Branch Operations Service - Banking Module
+  branch-operations:
+    build:
+      context: ./services/branch-operations
+      dockerfile: Dockerfile
+    container_name: exu-branch-operations
+    ports:
+      - "8227:8227"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8227"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      CUSTOMER_INFORMATION_URL: http://customer-information:8226
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      customer-information:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Teller Operations Service - Banking Module
+  teller-operations:
+    build:
+      context: ./services/teller-operations
+      dockerfile: Dockerfile
+    container_name: exu-teller-operations
+    ports:
+      - "8228:8228"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8228"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      BRANCH_OPERATIONS_URL: http://branch-operations:8227
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+      branch-operations:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Treasury Service - Banking Module
+  treasury:
+    build:
+      context: ./services/treasury
+      dockerfile: Dockerfile
+    container_name: exu-treasury
+    ports:
+      - "8229:8229"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8229"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      BANKING_SERVICE_URL: http://banking:8081
+      ACCOUNT_SERVICE_URL: http://account:8097
+      GENERAL_LEDGER_URL: http://general-ledger:8225
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      banking:
+        condition: service_started
+      general-ledger:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Interest Calculation Engine - Banking Module
+  interest-calculation:
+    build:
+      context: ./services/interest-calculation
+      dockerfile: Dockerfile
+    container_name: exu-interest-calculation
+    ports:
+      - "8230:8230"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8230"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      DEPOSIT_SERVICE_URL: http://deposit-service:8220
+      LOAN_MANAGEMENT_URL: http://loan-management:8219
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Commission Service - Core Platform
+  commission:
+    build:
+      context: ./services/commission
+      dockerfile: Dockerfile
+    container_name: exu-commission
+    ports:
+      - "8104:8104"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8104"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      AGENT_MANAGEMENT_URL: http://agent-management:8223
+      BROKER_PORTAL_URL: http://broker-portal-service:8224
+      INSURANCE_SERVICE_URL: http://insurance:8095
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # SWIFT Integration Service - Banking Module
+  swift-integration:
+    build:
+      context: ./services/swift-integration
+      dockerfile: Dockerfile
+    container_name: exu-swift-integration
+    ports:
+      - "8233:8233"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8233"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      PAYMENT_SERVICE_URL: http://payment:8082
+      REMITTANCE_SERVICE_URL: http://remittance:8098
+      SWIFT_GATEWAY_URL: https://api.swift.com
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      payment:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # RTGS Service - Banking Module
+  rtgs-service:
+    build:
+      context: ./services/rtgs-service
+      dockerfile: Dockerfile
+    container_name: exu-rtgs-service
+    ports:
+      - "8231:8231"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8231"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      PAYMENT_SERVICE_URL: http://payment:8082
+      BANKING_SERVICE_URL: http://banking:8081
+      CENTRAL_BANK_URL: https://api.nhnn.gov.vn
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      payment:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # ACH Service - Banking Module
+  ach-service:
+    build:
+      context: ./services/ach-service
+      dockerfile: Dockerfile
+    container_name: exu-ach-service
+    ports:
+      - "8232:8232"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8232"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      PAYMENT_SERVICE_URL: http://payment:8082
+      BANKING_SERVICE_URL: http://banking:8081
+      NAPAS_URL: https://api.napas.com.vn
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      payment:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Letter of Credit Service - Trade Finance Module
+  letter-of-credit:
+    build:
+      context: ./services/letter-of-credit
+      dockerfile: Dockerfile
+    container_name: exu-letter-of-credit
+    ports:
+      - "8234:8234"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8234"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      TRADE_FINANCE_SERVICE_URL: http://tradefinance:8101
+      DOCUMENT_SERVICE_URL: http://document:8094
+      BANKING_SERVICE_URL: http://banking:8081
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      tradefinance:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Documentary Collections Service - Trade Finance Module
+  documentary-collections:
+    build:
+      context: ./services/documentary-collections
+      dockerfile: Dockerfile
+    container_name: exu-documentary-collections
+    ports:
+      - "8235:8235"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8235"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/exu_financial?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      IAM_SERVICE_URL: http://iam:8080
+      TRADE_FINANCE_SERVICE_URL: http://tradefinance:8101
+      DOCUMENT_SERVICE_URL: http://document:8094
+      BANKING_SERVICE_URL: http://banking:8081
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      iam:
+        condition: service_started
+      tradefinance:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Observability Service - Request ID Search
+  observability-service:
+    build:
+      context: ./services/observability
+      dockerfile: Dockerfile
+    container_name: exu-observability
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8080"
+      LOKI_URL: http://loki:3100
+      JAEGER_URL: http://jaeger-query:16686
+    depends_on:
+      loki:
+        condition: service_started
+      jaeger:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Audit Service - Compliance & Audit Logs
+  audit-service:
+    build:
+      context: ./services/audit
+      dockerfile: Dockerfile
+    container_name: exu-audit
+    ports:
+      - "8090:8090"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8090"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/audit_db?sslmode=disable
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: audit-events
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Event Bus Service - Event Management
+  eventbus-service:
+    build:
+      context: ./services/eventbus
+      dockerfile: Dockerfile
+    container_name: exu-eventbus
+    ports:
+      - "8091:8091"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8091"
+      KAFKA_BROKERS: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      DLQ_TOPIC: dead-letter-queue
+    depends_on:
+      kafka:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Message Queue Service - Queue Management
+  messagequeue-service:
+    build:
+      context: ./services/messagequeue
+      dockerfile: Dockerfile
+    container_name: exu-messagequeue
+    ports:
+      - "8092:8092"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8092"
+      REDIS_URL: redis://redis:6379
+      QUEUE_TYPE: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # Cache Service - Distributed Caching
+  cache-service:
+    build:
+      context: ./services/cache
+      dockerfile: Dockerfile
+    container_name: exu-cache
+    ports:
+      - "8093:8093"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8093"
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # Search Service - Elasticsearch Integration
+  search-service:
+    build:
+      context: ./services/search
+      dockerfile: Dockerfile
+    container_name: exu-search
+    ports:
+      - "8094:8094"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8094"
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # File Storage Service - MinIO/S3
+  filestorage-service:
+    build:
+      context: ./services/filestorage
+      dockerfile: Dockerfile
+    container_name: exu-filestorage
+    ports:
+      - "8095:8095"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8095"
+      STORAGE_TYPE: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      S3_BUCKET: exu-financial
+    depends_on:
+      minio:
+        condition: service_started
+    networks:
+      - exu-network
+
+  # Email Service - SMTP Email
+  email-service:
+    build:
+      context: ./services/email
+      dockerfile: Dockerfile
+    container_name: exu-email
+    ports:
+      - "8096:8096"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8096"
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "587"
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      REDIS_URL: redis://redis:6379
+      QUEUE_NAME: email-queue
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # SMS Service - SMS Gateway
+  sms-service:
+    build:
+      context: ./services/sms
+      dockerfile: Dockerfile
+    container_name: exu-sms
+    ports:
+      - "8097:8097"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8097"
+      SMS_PROVIDER: twilio
+      TWILIO_SID: ${TWILIO_SID:-}
+      TWILIO_TOKEN: ${TWILIO_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      REDIS_URL: redis://redis:6379
+      QUEUE_NAME: sms-queue
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # Webhook Service - Webhook Management
+  webhook-service:
+    build:
+      context: ./services/webhook
+      dockerfile: Dockerfile
+    container_name: exu-webhook
+    ports:
+      - "8098:8098"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8098"
+      DATABASE_URL: postgresql://exu:exu_dev_password@postgres:5432/webhook_db?sslmode=disable
+      MAX_RETRIES: "3"
+      RETRY_DELAY: "60"
+      TIMEOUT: "30"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - exu-network
+
+  # Rate Limiting Service - Centralized Rate Limiting
+  ratelimit-service:
+    build:
+      context: ./services/ratelimit
+      dockerfile: Dockerfile
+    container_name: exu-ratelimit
+    ports:
+      - "8099:8099"
+    environment:
+      ENVIRONMENT: development
+      PORT: "8099"
+      REDIS_URL: redis://redis:6379
+      DEFAULT_LIMIT: "100"
+      DEFAULT_WINDOW: "60"
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - exu-network
 
